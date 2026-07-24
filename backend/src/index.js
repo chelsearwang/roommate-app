@@ -68,4 +68,41 @@ app.get('/me', requireAuth, async (req, res) => {
   res.json({ user });
 });
 
+// Create a new household, and make the creator its first member
+app.post('/households/create', requireAuth, async (req, res) => {
+  const { name } = req.body;
+  if (!name) {
+    return res.status(400).json({ error: 'name is required' });
+  }
+
+  const household = await prisma.household.create({ data: { name } });
+
+  const user = await prisma.user.update({
+    where: { id: req.userId },
+    data: { householdId: household.id },
+  });
+
+  res.json({ household, user });
+});
+
+// Join an existing household using its invite code
+app.post('/households/join', requireAuth, async (req, res) => {
+  const { inviteCode } = req.body;
+  if (!inviteCode) {
+    return res.status(400).json({ error: 'inviteCode is required' });
+  }
+
+  const household = await prisma.household.findUnique({ where: { inviteCode } });
+  if (!household) {
+    return res.status(404).json({ error: 'Household not found' });
+  }
+
+  const user = await prisma.user.update({
+    where: { id: req.userId },
+    data: { householdId: household.id },
+  });
+
+  res.json({ household, user });
+});
+
 app.listen(3000, () => console.log('Server running on port 3000'));
