@@ -1,12 +1,13 @@
 require('dotenv').config();
 const express = require('express');
 const jwt = require('jsonwebtoken');
-
-const app = express();
-// const prisma = new PrismaClient();
-
 const { PrismaClient } = require('@prisma/client');
 const { PrismaPg } = require('@prisma/adapter-pg');
+
+// ============================================================
+// SETUP — Express app + Prisma client (with Prisma 7 driver adapter)
+// ============================================================
+const app = express();
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
@@ -17,7 +18,9 @@ app.get('/', (req, res) => {
   res.send('Backend is running');
 });
 
-// --- Dev-only stub login ---
+// ============================================================
+// AUTH — dev-only stub login (temp for real Google login, to be implemented later!!)
+// ============================================================
 app.post('/auth/dev-login', async (req, res) => {
   const { name } = req.body;
   if (!name) {
@@ -44,7 +47,9 @@ app.post('/auth/dev-login', async (req, res) => {
   res.json({ token, user });
 });
 
-// --- Auth middleware ---
+// ============================================================
+// AUTH — middleware that protects routes by verifying the JWT
+// ============================================================
 function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
@@ -62,8 +67,14 @@ function requireAuth(req, res, next) {
   }
 }
 
+// ============================================================
+// CHORES — rotation helper functions
+// Rotation tracked per-chore, cycling through household members in join order
+// ============================================================
 const FREQUENCY_DAYS = { daily: 1, weekly: 7, biweekly: 14, monthly: 30 };
 
+// db is passed in explicitly (not just using the global `prisma`) so this
+// same function works both standalone and inside a $transaction.
 async function getNextAssignee(db, choreId, householdId) {
   const users = await db.user.findMany({
     where: { householdId },
@@ -79,10 +90,13 @@ async function getNextAssignee(db, choreId, householdId) {
 async function advanceRotation(db, choreId) {
   await db.chore.update({
     where: { id: choreId },
-    data: { rotationIndex: { increment: 1 } },
+    data: { rotationIndex: { increment: 1 } }, // atomic increment, avoids race conditions
   });
 }
 
+// Called whenever chores are listed
+// Catches up any assignments whose due date has passed, even if never completed  
+// marks the missed one "overdue" and rotates to the next person
 async function ensureAssignmentsUpToDate(chore) {
   const intervalMs = FREQUENCY_DAYS[chore.frequency] * 24 * 60 * 60 * 1000;
 
@@ -112,13 +126,17 @@ async function ensureAssignmentsUpToDate(chore) {
   }
 }
 
-// --- A protected test route ---
+// ============================================================
+// ROUTES — current user
+// ============================================================
 app.get('/me', requireAuth, async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.userId } });
   res.json({ user });
 });
 
-// Create a new household, and make the creator its first member
+// ============================================================
+// ROUTES — households (create, join via invite code)
+// ============================================================
 app.post('/households/create', requireAuth, async (req, res) => {
   const { name } = req.body;
   if (!name) {
@@ -135,7 +153,6 @@ app.post('/households/create', requireAuth, async (req, res) => {
   res.json({ household, user });
 });
 
-// Join an existing household using its invite code
 app.post('/households/join', requireAuth, async (req, res) => {
   const { inviteCode } = req.body;
   if (!inviteCode) {
@@ -155,6 +172,9 @@ app.post('/households/join', requireAuth, async (req, res) => {
   res.json({ household, user });
 });
 
+// ============================================================
+// ROUTES — announcements (create, list, resolve)
+// ============================================================
 app.post('/announcements', requireAuth, async (req, res) => {
   const { content, pinned } = req.body;
   if (!content) {
@@ -184,6 +204,7 @@ app.get('/announcements', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'You must join a household first' });
   }
 
+  // Pinned posts float to the top as a group; within each group, newest first.
   const announcements = await prisma.announcement.findMany({
     where: { householdId: currentUser.householdId },
     orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
@@ -208,6 +229,9 @@ app.patch('/announcements/:id/resolve', requireAuth, async (req, res) => {
   res.json({ announcement: updated });
 });
 
+// ============================================================
+// ROUTES — chores (create + assign, list with auto catch-up)
+// ============================================================
 app.post('/chores', requireAuth, async (req, res) => {
   const { name, frequency, weight } = req.body;
   if (!name || !frequency) {
@@ -249,6 +273,7 @@ app.get('/chores', requireAuth, async (req, res) => {
 
   const chores = await prisma.chore.findMany({ where: { householdId: currentUser.householdId } });
 
+  // Catch up any chores whose assignments have gone overdue before returning them.
   for (const chore of chores) {
     await ensureAssignmentsUpToDate(chore);
   }
@@ -256,13 +281,18 @@ app.get('/chores', requireAuth, async (req, res) => {
   const updatedChores = await prisma.chore.findMany({
     where: { householdId: currentUser.householdId },
     include: {
-      assignments: { orderBy: { dueDate: 'desc' }, take: 1 },
+      assignments: { orderBy: { dueDate: 'desc' }, take: 1 }, // most recent assignment only
     },
   });
 
   res.json({ chores: updatedChores });
 });
 
+// ============================================================
+// ROUTES — assignments (mark complete)
+// Requires both authentication (valid token) AND authorization
+// (this assignment actually belongs to the requesting user).
+// ============================================================
 app.patch('/assignments/:id/complete', requireAuth, async (req, res) => {
   const { id } = req.params;
 
@@ -282,4 +312,93 @@ app.patch('/assignments/:id/complete', requireAuth, async (req, res) => {
   res.json({ assignment: updated });
 });
 
+// ============================================================
+// ROUTES — expenses (create with even split, settle-up algorithm)
+// ============================================================
+app.post('/expenses', requireAuth, async (req, res) => {
+  const { description, amount } = req.body;
+  if (!description || !amount) {
+    return res.status(400).json({ error: 'description and amount are required' });
+  }
+
+  const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!currentUser.householdId) {
+    return res.status(400).json({ error: 'You must join a household first' });
+  }
+
+  const householdUsers = await prisma.user.findMany({ where: { householdId: currentUser.householdId } });
+  const splitAmount = amount / householdUsers.length;
+
+  const result = await prisma.$transaction(async (tx) => {
+    const expense = await tx.expense.create({
+      data: {
+        description,
+        amount,
+        householdId: currentUser.householdId,
+        payerId: req.userId,
+      },
+    });
+
+    // Even split across everyone in the household; 
+    // payer's own share is pre-settled since they don't owe themselves
+    const shares = await Promise.all(householdUsers.map((user) =>
+      tx.expenseShare.create({
+        data: {
+          expenseId: expense.id,
+          userId: user.id,
+          amount: splitAmount,
+          settled: user.id === req.userId,
+        },
+      })
+    ));
+
+    return { expense, shares };
+  });
+
+  res.json(result);
+});
+
+app.get('/households/settle-up', requireAuth, async (req, res) => {
+  const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!currentUser.householdId) {
+    return res.status(400).json({ error: 'You must join a household first' });
+  }
+
+  const shares = await prisma.expenseShare.findMany({
+    where: { user: { householdId: currentUser.householdId }, settled: false },
+    include: { expense: true, user: true },
+  });
+
+  // net each person's overall balance across all unsettled shares
+  const balances = {};
+  for (const share of shares) {
+    const oweUserId = share.userId;
+    const owedUserId = share.expense.payerId;
+    balances[oweUserId] = (balances[oweUserId] || 0) - Number(share.amount);
+    balances[owedUserId] = (balances[owedUserId] || 0) + Number(share.amount);
+  }
+
+  // split into debtors (owe money) and creditors (are owed money)
+  const debtors = Object.entries(balances).filter(([_, bal]) => bal < 0).map(([id, bal]) => ({ id, bal: -bal }));
+  const creditors = Object.entries(balances).filter(([_, bal]) => bal > 0).map(([id, bal]) => ({ id, bal }));
+
+  // match debtors with creditors, minimizing transaction count
+  const transactions = [];
+  let i = 0, j = 0;
+  while (i < debtors.length && j < creditors.length) {
+    const amount = Math.min(debtors[i].bal, creditors[j].bal);
+    transactions.push({ from: debtors[i].id, to: creditors[j].id, amount });
+
+    debtors[i].bal -= amount;
+    creditors[j].bal -= amount;
+    if (debtors[i].bal === 0) i++;
+    if (creditors[j].bal === 0) j++;
+  }
+
+  res.json({ transactions });
+});
+
+// ============================================================
+// START SERVER
+// ============================================================
 app.listen(3000, () => console.log('Server running on port 3000'));
