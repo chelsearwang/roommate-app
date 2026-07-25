@@ -155,6 +155,59 @@ app.post('/households/join', requireAuth, async (req, res) => {
   res.json({ household, user });
 });
 
+app.post('/announcements', requireAuth, async (req, res) => {
+  const { content, pinned } = req.body;
+  if (!content) {
+    return res.status(400).json({ error: 'content is required' });
+  }
+
+  const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!currentUser.householdId) {
+    return res.status(400).json({ error: 'You must join a household first' });
+  }
+
+  const announcement = await prisma.announcement.create({
+    data: {
+      content,
+      pinned: pinned || false,
+      householdId: currentUser.householdId,
+      authorId: req.userId,
+    },
+  });
+
+  res.json({ announcement });
+});
+
+app.get('/announcements', requireAuth, async (req, res) => {
+  const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!currentUser.householdId) {
+    return res.status(400).json({ error: 'You must join a household first' });
+  }
+
+  const announcements = await prisma.announcement.findMany({
+    where: { householdId: currentUser.householdId },
+    orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
+  });
+
+  res.json({ announcements });
+});
+
+app.patch('/announcements/:id/resolve', requireAuth, async (req, res) => {
+  const { id } = req.params;
+
+  const announcement = await prisma.announcement.findUnique({ where: { id } });
+  if (!announcement) {
+    return res.status(404).json({ error: 'Announcement not found' });
+  }
+
+  const updated = await prisma.announcement.update({
+    where: { id },
+    data: { resolved: true },
+  });
+
+  res.json({ announcement: updated });
+});
+
 app.post('/chores', requireAuth, async (req, res) => {
   const { name, frequency, weight } = req.body;
   if (!name || !frequency) {
