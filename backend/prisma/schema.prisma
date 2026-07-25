@@ -29,6 +29,7 @@ model User {
   name          String
   xp            Int      @default(0)
   avatarLevel   Int      @default(1)
+  createdAt     DateTime @default(now())
   household     Household? @relation(fields: [householdId], references: [id])
   householdId   String?
   assignments   Assignment[]
@@ -39,13 +40,14 @@ model User {
 }
 
 model Chore {
-  id          String   @id @default(uuid())
-  household   Household @relation(fields: [householdId], references: [id])
-  householdId String
-  name        String
-  frequency   String
-  weight      Int      @default(1)
-  assignments Assignment[]
+  id            String   @id @default(uuid())
+  household     Household @relation(fields: [householdId], references: [id])
+  householdId   String
+  name          String
+  frequency     String
+  weight        Int      @default(1)
+  rotationIndex Int      @default(0)
+  assignments   Assignment[]
 }
 
 model Assignment {
