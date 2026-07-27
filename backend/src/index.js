@@ -3,11 +3,13 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 const { PrismaPg } = require('@prisma/adapter-pg');
+const cors = require('cors');
 
 // ============================================================
 // SETUP — Express app + Prisma client (with Prisma 7 driver adapter)
 // ============================================================
 const app = express();
+app.use(cors());
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
@@ -72,13 +74,18 @@ function requireAuth(req, res, next) {
 // Rotation tracked per-chore, cycling through household members in join order
 // ============================================================
 const FREQUENCY_DAYS = { daily: 1, weekly: 7, biweekly: 14, monthly: 30 };
+const XP_PER_WEIGHT = 10;
+
+function calculateAvatarLevel(xp) {
+  return Math.floor(Math.sqrt(xp / 50)) + 1;
+}
 
 // db is passed in explicitly (not just using the global `prisma`) so this
 // same function works both standalone and inside a $transaction.
 async function getNextAssignee(db, choreId, householdId) {
   const users = await db.user.findMany({
     where: { householdId },
-    orderBy: { createdAt: 'asc' },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
   });
   if (users.length === 0) return null;
 
@@ -107,9 +114,26 @@ async function ensureAssignmentsUpToDate(chore) {
 
   while (latest && latest.dueDate < new Date()) {
     if (!latest.completedAt && latest.status !== 'overdue') {
-      await prisma.assignment.update({
-        where: { id: latest.id },
-        data: { status: 'overdue' },
+      const penalty = chore.weight * XP_PER_WEIGHT;
+
+      await prisma.$transaction(async (tx) => {
+        await tx.assignment.update({
+          where: { id: latest.id },
+          data: { status: 'overdue' },
+        });
+
+        const missedUser = await tx.user.findUnique({ where: { id: latest.userId } });
+        const newXp = Math.max(0, missedUser.xp - penalty);
+        const newLevel = Math.max(missedUser.avatarLevel, calculateAvatarLevel(newXp));
+        await tx.user.update({
+          where: { id: latest.userId },
+          data: { xp: newXp, avatarLevel: newLevel },
+        });
+
+        await tx.household.update({
+          where: { id: chore.householdId },
+          data: { streakCount: 0 },
+        });
       });
     }
 
@@ -130,7 +154,10 @@ async function ensureAssignmentsUpToDate(chore) {
 // ROUTES — current user
 // ============================================================
 app.get('/me', requireAuth, async (req, res) => {
-  const user = await prisma.user.findUnique({ where: { id: req.userId } });
+  const user = await prisma.user.findUnique({
+    where: { id: req.userId },
+    include: { household: true },
+  });
   res.json({ user });
 });
 
@@ -296,7 +323,10 @@ app.get('/chores', requireAuth, async (req, res) => {
 app.patch('/assignments/:id/complete', requireAuth, async (req, res) => {
   const { id } = req.params;
 
-  const assignment = await prisma.assignment.findUnique({ where: { id } });
+  const assignment = await prisma.assignment.findUnique({
+    where: { id },
+    include: { chore: true },
+  });
   if (!assignment) {
     return res.status(404).json({ error: 'Assignment not found' });
   }
@@ -304,12 +334,32 @@ app.patch('/assignments/:id/complete', requireAuth, async (req, res) => {
     return res.status(403).json({ error: 'This assignment is not yours' });
   }
 
-  const updated = await prisma.assignment.update({
-    where: { id },
-    data: { completedAt: new Date(), status: 'done' },
+  const wasOnTime = assignment.status !== 'overdue';
+  const xpEarned = assignment.chore.weight * XP_PER_WEIGHT;
+
+  const result = await prisma.$transaction(async (tx) => {
+    const updatedAssignment = await tx.assignment.update({
+      where: { id },
+      data: { completedAt: new Date(), status: 'done' },
+    });
+
+    const user = await tx.user.findUnique({ where: { id: req.userId } });
+    const newXp = user.xp + xpEarned;
+    const newLevel = Math.max(user.avatarLevel, calculateAvatarLevel(newXp));
+    const updatedUser = await tx.user.update({
+      where: { id: req.userId },
+      data: { xp: newXp, avatarLevel: newLevel },
+    });
+
+    await tx.household.update({
+      where: { id: assignment.chore.householdId },
+      data: wasOnTime ? { streakCount: { increment: 1 } } : { streakCount: 0 },
+    });
+
+    return { assignment: updatedAssignment, user: updatedUser, xpEarned };
   });
 
-  res.json({ assignment: updated });
+  res.json(result);
 });
 
 // ============================================================
