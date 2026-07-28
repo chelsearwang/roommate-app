@@ -308,7 +308,7 @@ app.get('/chores', requireAuth, async (req, res) => {
   const updatedChores = await prisma.chore.findMany({
     where: { householdId: currentUser.householdId },
     include: {
-      assignments: { orderBy: { dueDate: 'desc' }, take: 1 }, // most recent assignment only
+      assignments: { orderBy: { dueDate: 'desc' }, take: 1, include: { user: true } }, // most recent assignment only
     },
   });
 
