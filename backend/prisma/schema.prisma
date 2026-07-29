@@ -52,7 +52,7 @@ model Chore {
 
 model Assignment {
   id          String    @id @default(uuid())
-  chore       Chore     @relation(fields: [choreId], references: [id])
+  chore       Chore     @relation(fields: [choreId], references: [id], onDelete: Cascade)
   choreId     String
   user        User      @relation(fields: [userId], references: [id])
   userId      String

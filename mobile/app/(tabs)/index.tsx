@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react';
-import { View, Text, TextInput, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, Text, TextInput, ScrollView, Pressable, StyleSheet, Alert, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '@/context/AuthContext';
 import { apiRequest } from '@/utils/api';
 import { CozyButton } from '@/components/CozyButton';
+import { GamificationBar } from '@/components/GamificationBar';
 import { colors, radius } from '@/constants/colors';
 
 const FREQUENCIES = ['daily', 'weekly', 'biweekly', 'monthly'] as const;
@@ -16,6 +17,7 @@ const WEIGHTS = [
 type Assignment = { id: string; userId: string; dueDate: string; status: string; user?: { name: string } };
 type Chore = { id: string; name: string; frequency: string; weight: number; assignments: Assignment[] };
 type PersonRow = { userId: string; name: string; items: { chore: Chore; assignment: Assignment }[] };
+type MeData = { xp: number; avatarLevel: number; household?: { streakCount: number } };
 
 function groupByPerson(chores: Chore[]): PersonRow[] {
   const map: Record<string, PersonRow> = {};
@@ -33,21 +35,26 @@ function groupByPerson(chores: Chore[]): PersonRow[] {
 export default function ChoresScreen() {
   const { token, user } = useAuth();
   const [chores, setChores] = useState<Chore[]>([]);
+  const [meData, setMeData] = useState<MeData | null>(null);
   const [name, setName] = useState('');
   const [frequency, setFrequency] = useState<typeof FREQUENCIES[number]>('weekly');
   const [weight, setWeight] = useState(1);
   const [error, setError] = useState('');
 
-  const loadChores = useCallback(async () => {
+  const loadData = useCallback(async () => {
     try {
-      const data = await apiRequest('/chores', {}, token!);
-      setChores(data.chores);
+      const [choresData, meResponse] = await Promise.all([
+        apiRequest('/chores', {}, token!),
+        apiRequest('/me', {}, token!),
+      ]);
+      setChores(choresData.chores);
+      setMeData(meResponse.user);
     } catch (err: any) {
       setError(err.message);
     }
   }, [token]);
 
-  useFocusEffect(useCallback(() => { loadChores(); }, [loadChores]));
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   async function handleCreate() {
     if (!name) return;
@@ -55,7 +62,7 @@ export default function ChoresScreen() {
     try {
       await apiRequest('/chores', { method: 'POST', body: JSON.stringify({ name, frequency, weight }) }, token!);
       setName('');
-      loadChores();
+      loadData();
     } catch (err: any) {
       setError(err.message);
     }
@@ -64,17 +71,52 @@ export default function ChoresScreen() {
   async function handleComplete(assignmentId: string) {
     try {
       await apiRequest(`/assignments/${assignmentId}/complete`, { method: 'PATCH' }, token!);
-      loadChores();
+      loadData();
     } catch (err: any) {
       setError(err.message);
     }
   }
 
+  function handleDelete(choreId: string, choreName: string) {
+    const performDelete = async () => {
+      try {
+        await apiRequest(`/chores/${choreId}`, { method: 'DELETE' }, token!);
+        loadData();
+      } catch (err: any) {
+        setError(err.message);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Delete "${choreName}"? This removes it and its history for everyone. This can't be undone.`)) {
+        performDelete();
+      }
+    } else {
+      Alert.alert('Delete chore?', `This removes "${choreName}" and its history for everyone. This can't be undone.`, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: performDelete },
+      ]);
+    }
+  }
+
   const people = groupByPerson(chores);
+  const myOverdueCount = chores.filter((c) => {
+    const a = c.assignments[0];
+    return a && a.userId === user?.id && a.status === 'overdue';
+  }).length;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Chores</Text>
+
+      {meData && (
+        <GamificationBar
+          xp={meData.xp}
+          avatarLevel={meData.avatarLevel}
+          streakCount={meData.household?.streakCount ?? 0}
+          overdueCount={myOverdueCount}
+        />
+      )}
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Add a chore</Text>
@@ -124,6 +166,9 @@ export default function ChoresScreen() {
                 {isMine && !isDone && (
                   <CozyButton title="Done" variant="secondary" onPress={() => handleComplete(assignment.id)} />
                 )}
+                <Pressable onPress={() => handleDelete(chore.id, chore.name)} style={styles.deleteButton}>
+                  <Text style={styles.deleteText}>✕</Text>
+                </Pressable>
               </View>
             );
           })}
@@ -153,4 +198,6 @@ const styles = StyleSheet.create({
   dueText: { color: colors.ink, opacity: 0.7, fontSize: 13 },
   overdueText: { color: '#B5544A', opacity: 1, fontWeight: '600' },
   error: { color: '#B5544A', marginBottom: 12, textAlign: 'center' },
+  deleteButton: { paddingHorizontal: 8, paddingVertical: 4, marginLeft: 4 },
+  deleteText: { color: colors.ink, opacity: 0.35, fontSize: 16 },
 });

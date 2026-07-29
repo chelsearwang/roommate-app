@@ -234,7 +234,8 @@ app.get('/announcements', requireAuth, async (req, res) => {
   // Pinned posts float to the top as a group; within each group, newest first.
   const announcements = await prisma.announcement.findMany({
     where: { householdId: currentUser.householdId },
-    orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
+    orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }, { createdAt: 'desc' }],
+    include: { author: true },
   });
 
   res.json({ announcements });
@@ -256,6 +257,44 @@ app.patch('/announcements/:id/resolve', requireAuth, async (req, res) => {
   res.json({ announcement: updated });
 });
 
+app.patch('/announcements/:id', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const { content, pinned } = req.body;
+
+  const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+  const announcement = await prisma.announcement.findUnique({ where: { id } });
+
+  if (!announcement) {
+    return res.status(404).json({ error: 'Announcement not found' });
+  }
+  if (announcement.householdId !== currentUser.householdId) {
+    return res.status(403).json({ error: 'This announcement is not in your household' });
+  }
+
+  const data = {};
+  if (content !== undefined) data.content = content;
+  if (pinned !== undefined) data.pinned = pinned;
+
+  const updated = await prisma.announcement.update({ where: { id }, data });
+  res.json({ announcement: updated });
+});
+
+app.delete('/announcements/:id', requireAuth, async (req, res) => {
+  const { id } = req.params;
+
+  const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+  const announcement = await prisma.announcement.findUnique({ where: { id } });
+
+  if (!announcement) {
+    return res.status(404).json({ error: 'Announcement not found' });
+  }
+  if (announcement.householdId !== currentUser.householdId) {
+    return res.status(403).json({ error: 'This announcement is not in your household' });
+  }
+
+  await prisma.announcement.delete({ where: { id } });
+  res.json({ deleted: true });
+});
 // ============================================================
 // ROUTES — chores (create + assign, list with auto catch-up)
 // ============================================================
@@ -315,6 +354,23 @@ app.get('/chores', requireAuth, async (req, res) => {
   res.json({ chores: updatedChores });
 });
 
+app.delete('/chores/:id', requireAuth, async (req, res) => {
+  const { id } = req.params;
+
+  const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+  const chore = await prisma.chore.findUnique({ where: { id } });
+
+  if (!chore) {
+    return res.status(404).json({ error: 'Chore not found' });
+  }
+  if (chore.householdId !== currentUser.householdId) {
+    return res.status(403).json({ error: 'This chore is not in your household' });
+  }
+
+  await prisma.chore.delete({ where: { id } });
+
+  res.json({ deleted: true });
+});
 // ============================================================
 // ROUTES — assignments (mark complete)
 // Requires both authentication (valid token) AND authorization
@@ -445,7 +501,54 @@ app.get('/households/settle-up', requireAuth, async (req, res) => {
     if (creditors[j].bal === 0) j++;
   }
 
-  res.json({ transactions });
+  const userIds = [...new Set(transactions.flatMap((t) => [t.from, t.to]))];
+  const users = await prisma.user.findMany({ where: { id: { in: userIds } } });
+  const nameMap = Object.fromEntries(users.map((u) => [u.id, u.name]));
+  const transactionsWithNames = transactions.map((t) => ({ ...t, fromName: nameMap[t.from], toName: nameMap[t.to] }));
+
+  res.json({ transactions: transactionsWithNames });
+});
+
+app.get('/expenses', requireAuth, async (req, res) => {
+  const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!currentUser.householdId) {
+    return res.status(400).json({ error: 'You must join a household first' });
+  }
+
+  const expenses = await prisma.expense.findMany({
+    where: { householdId: currentUser.householdId },
+    orderBy: { createdAt: 'desc' },
+    include: { payer: true, shares: true },
+  });
+
+  res.json({ expenses });
+});
+
+
+app.post('/households/settle-up/confirm', requireAuth, async (req, res) => {
+  const { userA, userB } = req.body;
+  if (!userA || !userB) {
+    return res.status(400).json({ error: 'userA and userB are required' });
+  }
+
+  const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!currentUser.householdId) {
+    return res.status(400).json({ error: 'You must join a household first' });
+  }
+
+  await prisma.expenseShare.updateMany({
+    where: {
+      settled: false,
+      user: { householdId: currentUser.householdId },
+      OR: [
+        { userId: userA, expense: { payerId: userB } },
+        { userId: userB, expense: { payerId: userA } },
+      ],
+    },
+    data: { settled: true },
+  });
+
+  res.json({ settled: true });
 });
 
 // ============================================================
