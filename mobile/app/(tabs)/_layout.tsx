@@ -3,40 +3,37 @@ import React from 'react';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { colors, radius, shadow } from '@/constants/colors';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: colors.sage,
+        tabBarInactiveTintColor: colors.ink,
+        tabBarStyle: {
+          position: 'absolute',
+          left: 20,
+          right: 20,
+          bottom: 20,
+          height: 70,
+          paddingTop: 10,
+          paddingBottom: 10,
+          backgroundColor: colors.surface,
+          borderRadius: radius.lg,
+          borderTopWidth: 0,
+          ...shadow,
+        },
+        tabBarItemStyle: { justifyContent: 'center', alignItems: 'center' },
+        tabBarIconStyle: { marginBottom: 0 },
+        tabBarLabelStyle: { fontSize: 11, marginTop: 2, marginBottom: 0 },
         headerShown: false,
         tabBarButton: HapticTab,
       }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="expenses"
-        options={{
-          title: 'Expenses',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="dollarsign.circle.fill" color={color} />,
-        }}
-      />
+      <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} /> }} />
+      <Tabs.Screen name="chores" options={{ title: 'Chores', tabBarIcon: ({ color }) => <IconSymbol size={28} name="checkmark.circle.fill" color={color} /> }} />
+      <Tabs.Screen name="announcements" options={{ title: 'Announcements', tabBarIcon: ({ color }) => <IconSymbol size={28} name="megaphone.fill" color={color} /> }} />
+      <Tabs.Screen name="expenses" options={{ title: 'Expenses', tabBarIcon: ({ color }) => <IconSymbol size={28} name="dollarsign.circle.fill" color={color} /> }} />
     </Tabs>
   );
 }

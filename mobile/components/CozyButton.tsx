@@ -1,5 +1,5 @@
 import { Pressable, Text, StyleSheet } from 'react-native';
-import { colors, radius } from '../constants/colors';
+import { colors, radius, shadow } from '../constants/colors';
 
 type Props = {
   title: string;
@@ -22,6 +22,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     marginBottom: 12,
+    ...shadow,
   },
   text: { color: '#fff', fontWeight: '600', fontSize: 16 },
 });

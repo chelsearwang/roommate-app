@@ -19,6 +19,8 @@ const MAPPING = {
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
   'dollarsign.circle.fill': 'attach-money',
+  'checkmark.circle.fill': 'check-circle',
+  'megaphone.fill': 'campaign',
 } as IconMapping;
 
 /**

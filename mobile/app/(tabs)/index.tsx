@@ -1,54 +1,45 @@
 import { useState, useCallback } from 'react';
-import { View, Text, TextInput, ScrollView, Pressable, StyleSheet, Alert, Platform } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '@/context/AuthContext';
 import { apiRequest } from '@/utils/api';
-import { CozyButton } from '@/components/CozyButton';
 import { GamificationBar } from '@/components/GamificationBar';
-import { colors, radius } from '@/constants/colors';
+import { formatRelativeTime } from '@/utils/time';
+import { colors, radius, shadow } from '@/constants/colors';
 
-const FREQUENCIES = ['daily', 'weekly', 'biweekly', 'monthly'] as const;
-const WEIGHTS = [
-  { label: 'Light', value: 1 },
-  { label: 'Medium', value: 2 },
-  { label: 'Heavy', value: 3 },
-];
+type Announcement = { id: string; content: string; pinned: boolean; resolved: boolean; createdAt: string; author?: { name: string } };
+type Chore = { id: string; assignments: { userId: string; status: string }[] };
+type MeData = { xp: number; avatarLevel: number; name: string; household?: { streakCount: number; name: string } };
+type Stats = { completedThisWeek: number; householdOverdueCount: number };
+type Transaction = { from: string; to: string; amount: number };
 
-type Assignment = { id: string; userId: string; dueDate: string; status: string; user?: { name: string } };
-type Chore = { id: string; name: string; frequency: string; weight: number; assignments: Assignment[] };
-type PersonRow = { userId: string; name: string; items: { chore: Chore; assignment: Assignment }[] };
-type MeData = { xp: number; avatarLevel: number; household?: { streakCount: number } };
-
-function groupByPerson(chores: Chore[]): PersonRow[] {
-  const map: Record<string, PersonRow> = {};
-  for (const chore of chores) {
-    const assignment = chore.assignments[0];
-    if (!assignment || !assignment.user) continue;
-    if (!map[assignment.userId]) {
-      map[assignment.userId] = { userId: assignment.userId, name: assignment.user.name, items: [] };
-    }
-    map[assignment.userId].items.push({ chore, assignment });
-  }
-  return Object.values(map);
-}
-
-export default function ChoresScreen() {
-  const { token, user } = useAuth();
+export default function DashboardScreen() {
+  const { user, token } = useAuth();
+  const insets = useSafeAreaInsets();
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [chores, setChores] = useState<Chore[]>([]);
   const [meData, setMeData] = useState<MeData | null>(null);
-  const [name, setName] = useState('');
-  const [frequency, setFrequency] = useState<typeof FREQUENCIES[number]>('weekly');
-  const [weight, setWeight] = useState(1);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [error, setError] = useState('');
 
   const loadData = useCallback(async () => {
     try {
-      const [choresData, meResponse] = await Promise.all([
+      const [announcementsData, choresData, meResponse, statsData, settleData] = await Promise.all([
+        apiRequest('/announcements', {}, token!),
         apiRequest('/chores', {}, token!),
         apiRequest('/me', {}, token!),
+        apiRequest('/households/stats', {}, token!),
+        apiRequest('/households/settle-up', {}, token!),
       ]);
+      setAnnouncements(announcementsData.announcements.filter((a: Announcement) => !a.resolved).slice(0, 3));
       setChores(choresData.chores);
       setMeData(meResponse.user);
+      setStats(statsData);
+      setTransactions(settleData.transactions);
     } catch (err: any) {
       setError(err.message);
     }
@@ -56,61 +47,36 @@ export default function ChoresScreen() {
 
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
-  async function handleCreate() {
-    if (!name) return;
-    setError('');
-    try {
-      await apiRequest('/chores', { method: 'POST', body: JSON.stringify({ name, frequency, weight }) }, token!);
-      setName('');
-      loadData();
-    } catch (err: any) {
-      setError(err.message);
-    }
-  }
-
-  async function handleComplete(assignmentId: string) {
-    try {
-      await apiRequest(`/assignments/${assignmentId}/complete`, { method: 'PATCH' }, token!);
-      loadData();
-    } catch (err: any) {
-      setError(err.message);
-    }
-  }
-
-  function handleDelete(choreId: string, choreName: string) {
-    const performDelete = async () => {
-      try {
-        await apiRequest(`/chores/${choreId}`, { method: 'DELETE' }, token!);
-        loadData();
-      } catch (err: any) {
-        setError(err.message);
-      }
-    };
-
-    if (Platform.OS === 'web') {
-      if (window.confirm(`Delete "${choreName}"? This removes it and its history for everyone. This can't be undone.`)) {
-        performDelete();
-      }
-    } else {
-      Alert.alert('Delete chore?', `This removes "${choreName}" and its history for everyone. This can't be undone.`, [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: performDelete },
-      ]);
-    }
-  }
-
-  const people = groupByPerson(chores);
   const myOverdueCount = chores.filter((c) => {
     const a = c.assignments[0];
     return a && a.userId === user?.id && a.status === 'overdue';
   }).length;
 
+  const myPendingCount = chores.filter((c) => {
+    const a = c.assignments[0];
+    return a && a.userId === user?.id && a.status !== 'done';
+  }).length;
+
+  const myOwedAmount = transactions
+    .filter((t) => t.from === user?.id)
+    .reduce((sum, t) => sum + t.amount, 0);
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Chores</Text>
+    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + 40 }]}>
+      <View style={styles.headerRow}>
+        <View>
+          <Text style={styles.eyebrow}>YOUR HOME</Text>
+          <Text style={styles.title}>{meData?.household?.name ?? 'Household'}</Text>
+        </View>
+        <Pressable onPress={() => router.push('/settings')}>
+          <Ionicons name="settings-outline" size={26} color={colors.ink} />
+        </Pressable>
+      </View>
 
       {meData && (
         <GamificationBar
+          name={meData.name}
+          avatarEmoji={meData.avatarEmoji}
           xp={meData.xp}
           avatarLevel={meData.avatarLevel}
           streakCount={meData.household?.streakCount ?? 0}
@@ -118,86 +84,112 @@ export default function ChoresScreen() {
         />
       )}
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Add a chore</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Chore name"
-          placeholderTextColor="#999"
-          value={name}
-          onChangeText={setName}
-        />
-        <Text style={styles.label}>Frequency</Text>
-        <View style={styles.chipRow}>
-          {FREQUENCIES.map((f) => (
-            <Pressable key={f} onPress={() => setFrequency(f)} style={[styles.chip, frequency === f && styles.chipSelected]}>
-              <Text style={[styles.chipText, frequency === f && styles.chipTextSelected]}>{f}</Text>
-            </Pressable>
-          ))}
-        </View>
-        <Text style={styles.label}>Effort</Text>
-        <View style={styles.chipRow}>
-          {WEIGHTS.map((w) => (
-            <Pressable key={w.value} onPress={() => setWeight(w.value)} style={[styles.chip, weight === w.value && styles.chipSelected]}>
-              <Text style={[styles.chipText, weight === w.value && styles.chipTextSelected]}>{w.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-        <CozyButton title="Add chore" onPress={handleCreate} />
-      </View>
+      {myOverdueCount > 0 && (
+        <Pressable onPress={() => router.push('/chores')} style={styles.overdueBanner}>
+          <Ionicons name="alert-circle-outline" size={20} color={colors.terracotta} />
+          <Text style={styles.overdueText}>
+            You have {myOverdueCount} overdue chore{myOverdueCount > 1 ? 's' : ''} — tap to view
+          </Text>
+        </Pressable>
+      )}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      {people.map((person) => (
-        <View key={person.userId} style={styles.card}>
-          <Text style={styles.personName}>{person.name}</Text>
-          {person.items.map(({ chore, assignment }) => {
-            const isMine = assignment.userId === user?.id;
-            const isOverdue = assignment.status === 'overdue';
-            const isDone = assignment.status === 'done';
-            return (
-              <View key={chore.id} style={styles.taskRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.taskName, isDone && styles.doneText]}>{chore.name}</Text>
-                  <Text style={[styles.dueText, isOverdue && styles.overdueText]}>
-                    {isDone ? 'Completed' : isOverdue ? 'Overdue' : 'Due'} {new Date(assignment.dueDate).toLocaleDateString()}
-                  </Text>
-                </View>
-                {isMine && !isDone && (
-                  <CozyButton title="Done" variant="secondary" onPress={() => handleComplete(assignment.id)} />
-                )}
-                <Pressable onPress={() => handleDelete(chore.id, chore.name)} style={styles.deleteButton}>
-                  <Text style={styles.deleteText}>✕</Text>
-                </Pressable>
-              </View>
-            );
-          })}
+      {stats && (
+        <View style={styles.statsRow}>
+          <View style={[styles.statCard, { backgroundColor: colors.sageTint }]}>
+            <View style={styles.statHeaderRow}>
+              <Ionicons name="checkmark-circle" size={15} color={colors.sage} />
+              <Text style={[styles.statHeaderLabel, { color: colors.sage }]}>THIS WEEK</Text>
+            </View>
+            <Text style={[styles.statNumber, { color: colors.sage }]}>{stats.completedThisWeek}</Text>
+            <Text style={styles.statLabel}>chores completed</Text>
+          </View>
+          <View style={[styles.statCard, { backgroundColor: colors.terracottaTint }]}>
+            <View style={styles.statHeaderRow}>
+              <Ionicons name="alert-circle" size={15} color={colors.terracotta} />
+              <Text style={[styles.statHeaderLabel, { color: colors.terracotta }]}>OVERDUE</Text>
+            </View>
+            <Text style={[styles.statNumber, { color: colors.terracotta }]}>{stats.householdOverdueCount}</Text>
+            <Text style={styles.statLabel}>across all roommates</Text>
+          </View>
         </View>
-      ))}
+      )}
+
+      <View style={styles.card}>
+        <View style={styles.sectionHeaderRow}>
+          <View style={styles.sectionHeaderLeft}>
+            <Ionicons name="sparkles" size={17} color={colors.terracotta} />
+            <Text style={styles.cardSectionTitle}>Announcements</Text>
+          </View>
+          <Pressable onPress={() => router.push('/announcements')}>
+            <Text style={styles.seeAllText}>See all →</Text>
+          </Pressable>
+        </View>
+        {announcements.length === 0 ? (
+          <Text style={styles.emptyText}>Nothing new right now.</Text>
+        ) : (
+          announcements.map((a, i) => (
+            <View key={a.id} style={[styles.announcementItem, i < announcements.length - 1 && styles.announcementDivider]}>
+              <View style={styles.announcementTopRow}>
+                {a.pinned && <Ionicons name="pin" size={12} color={colors.terracotta} />}
+                <Text style={styles.announcementAuthor}>{a.author?.name}</Text>
+                <Text style={styles.announcementTime}>{formatRelativeTime(a.createdAt)}</Text>
+              </View>
+              <Text style={styles.announcementContent} numberOfLines={1}>{a.content}</Text>
+            </View>
+          ))
+        )}
+      </View>
+
+      <View style={styles.buttonGrid}>
+        <Pressable onPress={() => router.push('/chores')} style={[styles.navCard, { backgroundColor: colors.sage }]}>
+          <Ionicons name="list-outline" size={28} color="#fff" />
+          <Text style={styles.navLabelLight}>Chores</Text>
+          <Text style={styles.navSubtitle}>{myPendingCount} pending</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/expenses')} style={[styles.navCard, { backgroundColor: colors.terracotta }]}>
+          <Ionicons name="cash-outline" size={28} color="#fff" />
+          <Text style={styles.navLabelLight}>Expenses</Text>
+          <Text style={styles.navSubtitle}>{myOwedAmount > 0 ? `You owe $${myOwedAmount.toFixed(2)}` : 'All settled'}</Text>
+        </Pressable>
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.cream },
-  content: { padding: 20, paddingBottom: 60 },
-  title: { fontSize: 26, fontWeight: 'bold', color: colors.ink, marginBottom: 16 },
-  card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.mist },
-  cardTitle: { fontSize: 16, fontWeight: '600', color: colors.ink, marginBottom: 12 },
-  label: { fontSize: 13, color: colors.ink, marginBottom: 6, marginTop: 8, opacity: 0.7 },
-  input: { borderWidth: 1, borderColor: colors.mist, borderRadius: radius.sm, padding: 12, color: colors.ink, backgroundColor: colors.cream },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
-  chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: radius.md, backgroundColor: colors.cream, borderWidth: 1, borderColor: colors.mist },
-  chipSelected: { backgroundColor: colors.sage, borderColor: colors.sage },
-  chipText: { color: colors.ink, fontSize: 13 },
-  chipTextSelected: { color: '#fff', fontWeight: '600' },
-  personName: { fontSize: 17, fontWeight: '600', color: colors.ink, marginBottom: 8 },
-  taskRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.mist },
-  taskName: { fontSize: 15, color: colors.ink, fontWeight: '500' },
-  doneText: { textDecorationLine: 'line-through', opacity: 0.5 },
-  dueText: { color: colors.ink, opacity: 0.7, fontSize: 13 },
-  overdueText: { color: '#B5544A', opacity: 1, fontWeight: '600' },
+  content: { paddingHorizontal: 24, paddingBottom: 120 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
+  eyebrow: { fontSize: 12, fontWeight: '700', color: colors.ink, opacity: 0.5, letterSpacing: 1, marginBottom: 2 },
+  title: { fontSize: 26, fontWeight: 'bold', color: colors.ink },
+  overdueBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: colors.terracottaTint, borderRadius: radius.md, padding: 14, marginBottom: 20,
+  },
+  overdueText: { color: colors.ink, fontSize: 14, fontWeight: '600', flex: 1 },
+  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+  statCard: { flex: 1, borderRadius: radius.lg, padding: 16 },
+  statHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 10 },
+  statHeaderLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
+  statNumber: { fontSize: 30, fontWeight: '800', marginBottom: 4 },
+  statLabel: { fontSize: 12, color: colors.ink, opacity: 0.7 },
+  card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: colors.mist, ...shadow },
+  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  sectionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  cardSectionTitle: { fontSize: 17, fontWeight: '700', color: colors.ink },
+  seeAllText: { color: colors.sage, fontWeight: '600', fontSize: 13 },
+  emptyText: { color: colors.ink, opacity: 0.6, fontStyle: 'italic' },
+  announcementItem: { paddingVertical: 10 },
+  announcementDivider: { borderBottomWidth: 1, borderBottomColor: colors.mist },
+  announcementTopRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  announcementAuthor: { fontWeight: '700', color: colors.ink, fontSize: 13 },
+  announcementTime: { color: colors.ink, opacity: 0.5, fontSize: 12, marginLeft: 'auto' },
+  announcementContent: { color: colors.ink, opacity: 0.8, fontSize: 13 },
+  buttonGrid: { flexDirection: 'row', gap: 12 },
+  navCard: { flex: 1, borderRadius: radius.lg, padding: 20, alignItems: 'center', ...shadow },
+  navLabelLight: { fontSize: 16, fontWeight: '700', color: '#fff', marginTop: 8 },
+  navSubtitle: { fontSize: 12, color: '#fff', opacity: 0.9, marginTop: 4 },
   error: { color: '#B5544A', marginBottom: 12, textAlign: 'center' },
-  deleteButton: { paddingHorizontal: 8, paddingVertical: 4, marginLeft: 4 },
-  deleteText: { color: colors.ink, opacity: 0.35, fontSize: 16 },
 });

@@ -150,6 +150,27 @@ async function ensureAssignmentsUpToDate(chore) {
   }
 }
 
+app.patch('/chores/:id', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+  if (!name) {
+    return res.status(400).json({ error: 'name is required' });
+  }
+
+  const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+  const chore = await prisma.chore.findUnique({ where: { id } });
+
+  if (!chore) {
+    return res.status(404).json({ error: 'Chore not found' });
+  }
+  if (chore.householdId !== currentUser.householdId) {
+    return res.status(403).json({ error: 'This chore is not in your household' });
+  }
+
+  const updated = await prisma.chore.update({ where: { id }, data: { name } });
+  res.json({ chore: updated });
+});
+
 // ============================================================
 // ROUTES — current user
 // ============================================================
@@ -161,6 +182,19 @@ app.get('/me', requireAuth, async (req, res) => {
   res.json({ user });
 });
 
+app.patch('/me/avatar', requireAuth, async (req, res) => {
+  const { avatarEmoji } = req.body;
+  if (!avatarEmoji) {
+    return res.status(400).json({ error: 'avatarEmoji is required' });
+  }
+
+  const user = await prisma.user.update({
+    where: { id: req.userId },
+    data: { avatarEmoji },
+  });
+
+  res.json({ user });
+});
 // ============================================================
 // ROUTES — households (create, join via invite code)
 // ============================================================
@@ -197,6 +231,78 @@ app.post('/households/join', requireAuth, async (req, res) => {
   });
 
   res.json({ household, user });
+});
+
+app.get('/households/stats', requireAuth, async (req, res) => {
+  const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!currentUser.householdId) {
+    return res.status(400).json({ error: 'You must join a household first' });
+  }
+
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  const completedThisWeek = await prisma.assignment.count({
+    where: {
+      status: 'done',
+      completedAt: { gte: sevenDaysAgo },
+      chore: { householdId: currentUser.householdId },
+    },
+  });
+
+  const chores = await prisma.chore.findMany({
+    where: { householdId: currentUser.householdId },
+    include: { assignments: { orderBy: { dueDate: 'desc' }, take: 1 } },
+  });
+  const householdOverdueCount = chores.filter((c) => c.assignments[0]?.status === 'overdue').length;
+
+  res.json({ completedThisWeek, householdOverdueCount });
+});
+
+app.get('/households/members', requireAuth, async (req, res) => {
+  const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!currentUser.householdId) {
+    return res.status(400).json({ error: 'You must join a household first' });
+  }
+
+  const members = await prisma.user.findMany({
+    where: { householdId: currentUser.householdId },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  res.json({ members });
+});
+
+app.patch('/households/rename', requireAuth, async (req, res) => {
+  const { name } = req.body;
+  if (!name) {
+    return res.status(400).json({ error: 'name is required' });
+  }
+
+  const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!currentUser.householdId) {
+    return res.status(400).json({ error: 'You must join a household first' });
+  }
+
+  const household = await prisma.household.update({
+    where: { id: currentUser.householdId },
+    data: { name },
+  });
+
+  res.json({ household });
+});
+
+app.post('/households/leave', requireAuth, async (req, res) => {
+  const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!currentUser.householdId) {
+    return res.status(400).json({ error: 'You are not in a household' });
+  }
+
+  const user = await prisma.user.update({
+    where: { id: req.userId },
+    data: { householdId: null },
+  });
+
+  res.json({ user });
 });
 
 // ============================================================

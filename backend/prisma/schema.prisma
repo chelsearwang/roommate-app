@@ -37,6 +37,7 @@ model User {
   notifications Notification[]
   expenseShares ExpenseShare[]
   paidExpenses  Expense[] @relation("PaidBy")
+  avatarEmoji   String   @default("🐰")
 }
 
 model Chore {
