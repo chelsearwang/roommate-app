@@ -658,6 +658,71 @@ app.post('/households/settle-up/confirm', requireAuth, async (req, res) => {
 });
 
 // ============================================================
+// NUDGING
+// ============================================================
+
+const NUDGE_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4 hours
+
+app.post('/assignments/:id/nudge', requireAuth, async (req, res) => {
+  const { id } = req.params;
+
+  const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+  const assignment = await prisma.assignment.findUnique({
+    where: { id },
+    include: { chore: true, user: true },
+  });
+
+  if (!assignment) {
+    return res.status(404).json({ error: 'Assignment not found' });
+  }
+  if (assignment.chore.householdId !== currentUser.householdId) {
+    return res.status(403).json({ error: 'This chore is not in your household' });
+  }
+  if (assignment.userId === req.userId) {
+    return res.status(400).json({ error: "You can't nudge yourself" });
+  }
+  if (assignment.status === 'done') {
+    return res.status(400).json({ error: 'This chore is already done' });
+  }
+
+  const cooldownStart = new Date(Date.now() - NUDGE_COOLDOWN_MS);
+  const recentNudge = await prisma.notification.findFirst({
+    where: { userId: assignment.userId, type: 'nudge', createdAt: { gte: cooldownStart } },
+  });
+  if (recentNudge) {
+    return res.status(429).json({ error: `${assignment.user.name} was already nudged recently. Try again later.` });
+  }
+
+  await prisma.notification.create({
+    data: {
+      userId: assignment.userId,
+      type: 'nudge',
+      content: `${currentUser.name} nudged you about "${assignment.chore.name}"`,
+    },
+  });
+
+  res.json({ nudged: true });
+});
+
+app.get('/notifications', requireAuth, async (req, res) => {
+  const notifications = await prisma.notification.findMany({
+    where: { userId: req.userId, read: false },
+    orderBy: { createdAt: 'desc' },
+  });
+  res.json({ notifications });
+});
+
+app.patch('/notifications/:id/read', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const notification = await prisma.notification.findUnique({ where: { id } });
+  if (!notification || notification.userId !== req.userId) {
+    return res.status(404).json({ error: 'Notification not found' });
+  }
+  await prisma.notification.update({ where: { id }, data: { read: true } });
+  res.json({ read: true });
+});
+
+// ============================================================
 // START SERVER
 // ============================================================
 app.listen(3000, () => console.log('Server running on port 3000'));

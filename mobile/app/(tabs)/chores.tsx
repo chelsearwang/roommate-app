@@ -5,6 +5,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '@/context/AuthContext';
 import { apiRequest } from '@/utils/api';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { Toast } from '@/components/Toast';
 import { colors, radius, shadow } from '@/constants/colors';
 
 const FREQUENCIES = ['daily', 'weekly', 'biweekly', 'monthly'] as const;
@@ -55,6 +56,7 @@ export default function ChoresScreen() {
   const [editingChoreId, setEditingChoreId] = useState<string | null>(null);
   const [editChoreName, setEditChoreName] = useState('');
   const [error, setError] = useState('');
+  const [feedback, setFeedback] = useState('');
 
   const loadChores = useCallback(async () => {
     try {
@@ -84,6 +86,17 @@ export default function ChoresScreen() {
     try {
       await apiRequest(`/assignments/${assignmentId}/complete`, { method: 'PATCH' }, token!);
       loadChores();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }
+
+  async function handleNudge(assignmentId: string, personName: string) {
+    setError('');
+    setFeedback('');
+    try {
+      await apiRequest(`/assignments/${assignmentId}/nudge`, { method: 'POST' }, token!);
+      setFeedback(`Nudged ${personName}! 👋`);
     } catch (err: any) {
       setError(err.message);
     }
@@ -131,114 +144,120 @@ export default function ChoresScreen() {
   const people = groupByPerson(chores);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <ScreenHeader eyebrow="MANAGE" title="Chores" emoji="🧹" rightAction={{ label: 'Add chore', onPress: () => setShowAddForm(true) }} />
+    <View style={{ flex: 1 }}>
+      {error ? <Toast message={error} type="error" onDismiss={() => setError('')} /> : null}
+      {feedback ? <Toast message={feedback} type="success" onDismiss={() => setFeedback('')} /> : null}
 
-      {showAddForm && (
-        <View style={styles.card}>
-          <View style={styles.addFormHeader}>
-            <Text style={styles.cardTitle}>New chore ✨</Text>
-            <Pressable onPress={() => setShowAddForm(false)}>
-              <Ionicons name="close" size={20} color={colors.ink} style={{ opacity: 0.5 }} />
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <ScreenHeader eyebrow="MANAGE" title="Chores" emoji="🧹" rightAction={{ label: 'Add chore', onPress: () => setShowAddForm(true) }} />
+
+        {showAddForm && (
+          <View style={styles.card}>
+            <View style={styles.addFormHeader}>
+              <Text style={styles.cardTitle}>New chore ✨</Text>
+              <Pressable onPress={() => setShowAddForm(false)}>
+                <Ionicons name="close" size={20} color={colors.ink} style={{ opacity: 0.5 }} />
+              </Pressable>
+            </View>
+            <Text style={styles.label}>CHORE NAME</Text>
+            <TextInput style={styles.input} placeholder="e.g. Scrub the sink..." placeholderTextColor="#999" value={name} onChangeText={setName} />
+            <Text style={styles.label}>FREQUENCY</Text>
+            <View style={styles.chipRow}>
+              {FREQUENCIES.map((f) => (
+                <Pressable key={f} onPress={() => setFrequency(f)} style={[styles.chip, frequency === f && styles.chipSelected]}>
+                  <Text style={[styles.chipText, frequency === f && styles.chipTextSelected]}>{f}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Text style={styles.label}>WEIGHT</Text>
+            <View style={styles.chipRow}>
+              {WEIGHTS.map((w) => (
+                <Pressable key={w.value} onPress={() => setWeight(w.value)} style={[styles.chip, weight === w.value && styles.chipSelected]}>
+                  <Text style={[styles.chipText, weight === w.value && styles.chipTextSelected]}>{w.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Pressable onPress={handleCreate} style={styles.saveButton}>
+              <Text style={styles.saveButtonText}>Save chore</Text>
             </Pressable>
           </View>
-          <Text style={styles.label}>CHORE NAME</Text>
-          <TextInput style={styles.input} placeholder="e.g. Scrub the sink..." placeholderTextColor="#999" value={name} onChangeText={setName} />
-          <Text style={styles.label}>FREQUENCY</Text>
-          <View style={styles.chipRow}>
-            {FREQUENCIES.map((f) => (
-              <Pressable key={f} onPress={() => setFrequency(f)} style={[styles.chip, frequency === f && styles.chipSelected]}>
-                <Text style={[styles.chipText, frequency === f && styles.chipTextSelected]}>{f}</Text>
-              </Pressable>
-            ))}
-          </View>
-          <Text style={styles.label}>WEIGHT</Text>
-          <View style={styles.chipRow}>
-            {WEIGHTS.map((w) => (
-              <Pressable key={w.value} onPress={() => setWeight(w.value)} style={[styles.chip, weight === w.value && styles.chipSelected]}>
-                <Text style={[styles.chipText, weight === w.value && styles.chipTextSelected]}>{w.label}</Text>
-              </Pressable>
-            ))}
-          </View>
-          <Pressable onPress={handleCreate} style={styles.saveButton}>
-            <Text style={styles.saveButtonText}>Save chore</Text>
-          </Pressable>
-        </View>
-      )}
+        )}
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-
-      {people.map((person) => (
-        <View key={person.userId}>
-          <View style={styles.personHeaderRow}>
-            <Text style={styles.personAvatar}>{person.avatarEmoji}</Text>
-            <Text style={styles.personName}>{person.name}</Text>
-            <Text style={styles.activeCount}>{person.items.filter((i) => i.assignment.status !== 'done').length} active</Text>
-          </View>
-          {person.items.map(({ chore, assignment }) => {
-            const isMine = assignment.userId === user?.id;
-            const isOverdue = assignment.status === 'overdue';
-            const isDone = assignment.status === 'done';
-            const isEditing = editingChoreId === chore.id;
-            const wMeta = weightMeta(chore.weight);
-            return (
-              <View key={chore.id} style={[styles.choreCard, isDone && styles.choreCardDone]}>
-                <View style={styles.choreTopRow}>
-                  <View style={[styles.statusCircle, isDone && styles.statusCircleDone]}>
-                    {isDone && <Ionicons name="checkmark" size={14} color="#fff" />}
-                  </View>
-                  {isEditing ? (
-                    <TextInput style={[styles.input, { flex: 1 }]} value={editChoreName} onChangeText={setEditChoreName} autoFocus />
-                  ) : (
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.choreName, isDone && styles.doneText]}>{chore.name}</Text>
-                      <View style={styles.tagRow}>
-                        <View style={styles.tag}><Text style={styles.tagText}>{chore.frequency}</Text></View>
-                        <View style={[styles.tag, { backgroundColor: wMeta.bg }]}><Text style={[styles.tagText, { color: wMeta.color }]}>{wMeta.icon} {wMeta.label}</Text></View>
-                        {isOverdue && <View style={[styles.tag, { backgroundColor: colors.terracottaTint }]}><Text style={[styles.tagText, { color: colors.terracotta }]}>overdue</Text></View>}
+        {people.map((person) => (
+          <View key={person.userId}>
+            <View style={styles.personHeaderRow}>
+              <Text style={styles.personAvatar}>{person.avatarEmoji}</Text>
+              <Text style={styles.personName}>{person.name}</Text>
+              <Text style={styles.activeCount}>{person.items.filter((i) => i.assignment.status !== 'done').length} active</Text>
+            </View>
+            {person.items.map(({ chore, assignment }) => {
+              const isMine = assignment.userId === user?.id;
+              const isOverdue = assignment.status === 'overdue';
+              const isDone = assignment.status === 'done';
+              const isEditing = editingChoreId === chore.id;
+              const wMeta = weightMeta(chore.weight);
+              return (
+                <View key={chore.id} style={[styles.choreCard, isDone && styles.choreCardDone]}>
+                  <View style={styles.choreTopRow}>
+                    <View style={[styles.statusCircle, isDone && styles.statusCircleDone]}>
+                      {isDone && <Ionicons name="checkmark" size={14} color="#fff" />}
+                    </View>
+                    {isEditing ? (
+                      <TextInput style={[styles.input, { flex: 1 }]} value={editChoreName} onChangeText={setEditChoreName} autoFocus />
+                    ) : (
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.choreName, isDone && styles.doneText]}>{chore.name}</Text>
+                        <View style={styles.tagRow}>
+                          <View style={styles.tag}><Text style={styles.tagText}>{chore.frequency}</Text></View>
+                          <View style={[styles.tag, { backgroundColor: wMeta.bg }]}><Text style={[styles.tagText, { color: wMeta.color }]}>{wMeta.icon} {wMeta.label}</Text></View>
+                          {isOverdue && <View style={[styles.tag, { backgroundColor: colors.terracottaTint }]}><Text style={[styles.tagText, { color: colors.terracotta }]}>overdue</Text></View>}
+                        </View>
                       </View>
+                    )}
+                  </View>
+                  <View style={styles.divider} />
+                  {isEditing ? (
+                    <View style={styles.actionRow}>
+                      <Pressable onPress={() => saveEdit(chore.id)} style={[styles.markDoneButton, { backgroundColor: colors.sageTint }]}>
+                        <Text style={styles.markDoneText}>Save</Text>
+                      </Pressable>
+                      <Pressable onPress={cancelEdit} style={styles.iconButton}>
+                        <Ionicons name="close" size={15} color={colors.ink} />
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <View style={styles.actionRow}>
+                      {isDone ? (
+                        <View style={[styles.markDoneButton, styles.markDoneButtonComplete]}>
+                          <Ionicons name="checkmark-circle" size={16} color={colors.ink} style={{ opacity: 0.4 }} />
+                          <Text style={styles.markDoneTextComplete}>Complete</Text>
+                        </View>
+                      ) : isMine ? (
+                        <Pressable onPress={() => handleComplete(assignment.id)} style={styles.markDoneButton}>
+                          <Ionicons name="checkmark-circle" size={16} color={colors.sage} />
+                          <Text style={styles.markDoneText}>Mark done</Text>
+                        </Pressable>
+                      ) : (
+                        <Pressable onPress={() => handleNudge(assignment.id, person.name)} style={[styles.markDoneButton, styles.nudgeButton]}>
+                          <Ionicons name="notifications-outline" size={16} color={colors.terracotta} />
+                          <Text style={styles.nudgeText}>Nudge</Text>
+                        </Pressable>
+                      )}
+                      <Pressable onPress={() => startEdit(chore)} style={styles.iconButton}>
+                        <Ionicons name="create-outline" size={15} color={colors.sage} />
+                      </Pressable>
+                      <Pressable onPress={() => handleDelete(chore.id, chore.name)} style={[styles.iconButton, styles.iconButtonDanger]}>
+                        <Ionicons name="trash-outline" size={15} color={colors.terracotta} />
+                      </Pressable>
                     </View>
                   )}
                 </View>
-                <View style={styles.divider} />
-                {isEditing ? (
-                  <View style={styles.actionRow}>
-                    <Pressable onPress={() => saveEdit(chore.id)} style={[styles.markDoneButton, { backgroundColor: colors.sageTint }]}>
-                      <Text style={styles.markDoneText}>Save</Text>
-                    </Pressable>
-                    <Pressable onPress={cancelEdit} style={styles.iconButton}>
-                      <Ionicons name="close" size={15} color={colors.ink} />
-                    </Pressable>
-                  </View>
-                ) : (
-                  <View style={styles.actionRow}>
-                    {isDone ? (
-                      <View style={[styles.markDoneButton, styles.markDoneButtonComplete]}>
-                        <Ionicons name="checkmark-circle" size={16} color={colors.ink} style={{ opacity: 0.4 }} />
-                        <Text style={styles.markDoneTextComplete}>Complete</Text>
-                      </View>
-                    ) : isMine ? (
-                      <Pressable onPress={() => handleComplete(assignment.id)} style={styles.markDoneButton}>
-                        <Ionicons name="checkmark-circle" size={16} color={colors.sage} />
-                        <Text style={styles.markDoneText}>Mark done</Text>
-                      </Pressable>
-                    ) : (
-                      <View style={styles.markDoneButton} />
-                    )}
-                    <Pressable onPress={() => startEdit(chore)} style={styles.iconButton}>
-                      <Ionicons name="create-outline" size={15} color={colors.sage} />
-                    </Pressable>
-                    <Pressable onPress={() => handleDelete(chore.id, chore.name)} style={[styles.iconButton, styles.iconButtonDanger]}>
-                      <Ionicons name="trash-outline" size={15} color={colors.terracotta} />
-                    </Pressable>
-                  </View>
-                )}
-              </View>
-            );
-          })}
-        </View>
-      ))}
-    </ScrollView>
+              );
+            })}
+          </View>
+        ))}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -280,4 +299,7 @@ const styles = StyleSheet.create({
   iconButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.sageTint, alignItems: 'center', justifyContent: 'center' },
   iconButtonDanger: { backgroundColor: colors.terracottaTint },
   error: { color: '#B5544A', marginBottom: 12, textAlign: 'center' },
+  nudgeButton: { backgroundColor: colors.terracottaTint },
+  nudgeText: { color: colors.terracotta, fontWeight: '700', fontSize: 13 },
+  feedback: { color: colors.sage, marginBottom: 12, textAlign: 'center', fontWeight: '600' },
 });

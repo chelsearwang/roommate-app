@@ -1,3 +1,4 @@
+/*
 export const colors = {
   cream: '#FFF8F0',
   surface: '#FFFFFF',
@@ -9,6 +10,21 @@ export const colors = {
   ink: '#3D3230',
   mist: '#EDE2D3',
 };
+*/
+export const colors = {
+  cream: '#F0F4FA',
+  surface: '#FFFFFF',
+  sage: '#4A7FA5',
+  sageTint: '#DCE8F2',
+  clay: '#F5C99B',
+  terracotta: '#E8935C',
+  terracottaTint: '#FBE4D0',
+  ink: '#2E3A4A',
+  mist: '#DCE3EC',
+};
+
+// #E8B84A / #FBEFD0
+// #D97AA0 / #F7DDE8
 
 export const radius = {
   sm: 12,

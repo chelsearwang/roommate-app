@@ -15,6 +15,7 @@ type Chore = { id: string; assignments: { userId: string; status: string }[] };
 type MeData = { xp: number; avatarLevel: number; name: string; household?: { streakCount: number; name: string } };
 type Stats = { completedThisWeek: number; householdOverdueCount: number };
 type Transaction = { from: string; to: string; amount: number };
+type NotificationItem = { id: string; content: string };
 
 export default function DashboardScreen() {
   const { user, token } = useAuth();
@@ -24,22 +25,25 @@ export default function DashboardScreen() {
   const [meData, setMeData] = useState<MeData | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [error, setError] = useState('');
 
   const loadData = useCallback(async () => {
     try {
-      const [announcementsData, choresData, meResponse, statsData, settleData] = await Promise.all([
+      const [announcementsData, choresData, meResponse, statsData, settleData, notificationsData] = await Promise.all([
         apiRequest('/announcements', {}, token!),
         apiRequest('/chores', {}, token!),
         apiRequest('/me', {}, token!),
         apiRequest('/households/stats', {}, token!),
         apiRequest('/households/settle-up', {}, token!),
+        apiRequest('/notifications', {}, token!),
       ]);
       setAnnouncements(announcementsData.announcements.filter((a: Announcement) => !a.resolved).slice(0, 3));
       setChores(choresData.chores);
       setMeData(meResponse.user);
       setStats(statsData);
       setTransactions(settleData.transactions);
+      setNotifications(notificationsData.notifications);
     } catch (err: any) {
       setError(err.message);
     }
@@ -60,6 +64,15 @@ export default function DashboardScreen() {
   const myOwedAmount = transactions
     .filter((t) => t.from === user?.id)
     .reduce((sum, t) => sum + t.amount, 0);
+
+  async function dismissNotification(id: string) {
+    try {
+      await apiRequest(`/notifications/${id}/read`, { method: 'PATCH' }, token!);
+      loadData();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + 40 }]}>
@@ -83,6 +96,14 @@ export default function DashboardScreen() {
           overdueCount={myOverdueCount}
         />
       )}
+
+      {notifications.map((n) => (
+        <Pressable key={n.id} onPress={() => dismissNotification(n.id)} style={styles.nudgeBanner}>
+          <Ionicons name="notifications" size={18} color={colors.terracotta} />
+          <Text style={styles.nudgeBannerText}>{n.content}</Text>
+          <Ionicons name="close" size={16} color={colors.ink} style={{ opacity: 0.4 }} />
+        </Pressable>
+      ))}
 
       {myOverdueCount > 0 && (
         <Pressable onPress={() => router.push('/chores')} style={styles.overdueBanner}>
@@ -169,6 +190,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.terracottaTint, borderRadius: radius.md, padding: 14, marginBottom: 20,
   },
   overdueText: { color: colors.ink, fontSize: 14, fontWeight: '600', flex: 1 },
+  nudgeBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: colors.terracottaTint, borderRadius: radius.md, padding: 14, marginBottom: 12,
+  },
+  nudgeBannerText: { color: colors.ink, fontSize: 14, fontWeight: '600', flex: 1 },
   statsRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   statCard: { flex: 1, borderRadius: radius.lg, padding: 16 },
   statHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 10 },
