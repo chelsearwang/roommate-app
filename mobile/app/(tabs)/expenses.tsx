@@ -44,6 +44,10 @@ export default function ExpensesScreen() {
   }, [token]);
 
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
+  
+  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const recentExpenses = expenses.filter((e) => new Date(e.createdAt).getTime() >= thirtyDaysAgo);
+  const totalSpent = recentExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
 
   async function handleCreate() {
     const parsedAmount = parseFloat(amount);
@@ -128,6 +132,25 @@ export default function ExpensesScreen() {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
+      <View style={styles.statsRow}>
+        <View style={[styles.statCard, { backgroundColor: colors.sageTint }]}>
+          <View style={styles.statHeaderRow}>
+            <Ionicons name="cash-outline" size={15} color={colors.sage} />
+            <Text style={[styles.statHeaderLabel, { color: colors.sage }]}>PAST 30 DAYS</Text>
+          </View>
+          <Text style={[styles.statNumber, { color: colors.sage }]}>${totalSpent.toFixed(2)}</Text>
+          <Text style={styles.statLabel}>total spent</Text>
+        </View>
+        <View style={[styles.statCard, { backgroundColor: colors.terracottaTint }]}>
+          <View style={styles.statHeaderRow}>
+            <Ionicons name="receipt-outline" size={15} color={colors.terracotta} />
+            <Text style={[styles.statHeaderLabel, { color: colors.terracotta }]}>PAST 30 DAYS</Text>
+          </View>
+          <Text style={[styles.statNumber, { color: colors.terracotta }]}>{recentExpenses.length}</Text>
+          <Text style={styles.statLabel}>transactions logged</Text>
+        </View>
+      </View>
+
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Settle Up</Text>
         {transactions.length === 0 ? (
@@ -210,4 +233,10 @@ const styles = StyleSheet.create({
   historyMeta: { color: colors.ink, opacity: 0.6, fontSize: 12, marginTop: 2 },
   historyAmount: { color: colors.ink, fontWeight: '700', fontSize: 15 },
   error: { color: '#B5544A', marginBottom: 12, textAlign: 'center' },
+  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  statCard: { flex: 1, borderRadius: radius.lg, padding: 16 },
+  statHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 10 },
+  statHeaderLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
+  statNumber: { fontSize: 30, fontWeight: '800', marginBottom: 4 },
+  statLabel: { fontSize: 12, color: colors.ink, opacity: 0.7 },
 });

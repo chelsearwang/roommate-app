@@ -41,15 +41,18 @@ model User {
 }
 
 model Chore {
-  id            String   @id @default(uuid())
-  household     Household @relation(fields: [householdId], references: [id])
-  householdId   String
-  name          String
-  frequency     String
-  weight        Int      @default(1)
-  rotationIndex Int      @default(0)
-  createdAt     DateTime @default(now())
-  assignments   Assignment[]
+  id                 String   @id @default(uuid())
+  household          Household @relation(fields: [householdId], references: [id])
+  householdId        String
+  name               String
+  type               String   @default("recurring") // "recurring" | "one_time"
+  frequency          String?  // null for one_time chores
+  weight             Int      @default(1)
+  rotationIndex      Int      @default(0)
+  scheduleWeekday    Int?     // 0=Sunday..6=Saturday — only used when frequency is "monthly"
+  scheduleOccurrence String?  // "first"|"second"|"third"|"fourth"|"last" — only used when frequency is "monthly"
+  createdAt          DateTime @default(now())
+  assignments        Assignment[]
 }
 
 model Assignment {

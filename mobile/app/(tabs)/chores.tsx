@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { apiRequest } from '@/utils/api';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Toast } from '@/components/Toast';
+import { CalendarPicker, toDateString } from '@/components/CalendarPicker';
 import { colors, radius, shadow } from '@/constants/colors';
 
 const FREQUENCIES = ['daily', 'weekly', 'biweekly', 'monthly'] as const;
@@ -14,9 +15,47 @@ const WEIGHTS = [
   { label: 'Medium', value: 2 },
   { label: 'Heavy', value: 3 },
 ];
+const WEEKDAYS = [
+  { label: 'Sun', value: 0 }, { label: 'Mon', value: 1 }, { label: 'Tue', value: 2 },
+  { label: 'Wed', value: 3 }, { label: 'Thu', value: 4 }, { label: 'Fri', value: 5 }, { label: 'Sat', value: 6 },
+];
+const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const OCCURRENCE_LABELS: Record<string, string> = { first: '1st', second: '2nd', third: '3rd', fourth: '4th', last: 'last' };
+
+
+const OCCURRENCE_INDEX: Record<string, number> = { first: 0, second: 1, third: 2, fourth: 3 };
+
+function getNthWeekdayOfMonthLocal(year: number, month: number, weekday: number, occurrence: string): Date {
+  if (occurrence === 'last') {
+    const lastDayOfMonth = new Date(year, month + 1, 0);
+    const diff = (lastDayOfMonth.getDay() - weekday + 7) % 7;
+    lastDayOfMonth.setDate(lastDayOfMonth.getDate() - diff);
+    return lastDayOfMonth;
+  }
+  const firstOfMonth = new Date(year, month, 1);
+  const offset = (weekday - firstOfMonth.getDay() + 7) % 7;
+  const day = 1 + offset + OCCURRENCE_INDEX[occurrence] * 7;
+  return new Date(year, month, day);
+}
+
+// Display-only mirror of the backend's getOccurrenceOfWeekday — just for showing
+// a friendly preview label. The backend independently re-derives the real value;
+// this duplication is low-risk since it only affects what text is shown, not what's stored.
+function describeMonthlyPattern(dateString: string): string {
+  const [y, m, d] = dateString.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  const weekday = date.getDay();
+  const occurrenceIndex = Math.floor((d - 1) / 7);
+  const occurrence = occurrenceIndex < 4 ? ['first', 'second', 'third', 'fourth'][occurrenceIndex] : 'last';
+  return `Recurs on the ${OCCURRENCE_LABELS[occurrence]} ${WEEKDAY_NAMES[weekday]} of each month`;
+}
 
 type Assignment = { id: string; userId: string; dueDate: string; status: string; user?: { name: string; avatarEmoji: string } };
-type Chore = { id: string; name: string; frequency: string; weight: number; assignments: Assignment[] };
+type Chore = {
+  id: string; name: string; type: string; frequency: string | null; weight: number;
+  scheduleWeekday: number | null; scheduleOccurrence: string | null; assignments: Assignment[];
+};
+type Member = { id: string; name: string; avatarEmoji: string };
 type PersonRow = { userId: string; name: string; avatarEmoji: string; items: { chore: Chore; assignment: Assignment }[] };
 
 function groupByPerson(chores: Chore[]): PersonRow[] {
@@ -29,7 +68,6 @@ function groupByPerson(chores: Chore[]): PersonRow[] {
     }
     map[assignment.userId].items.push({ chore, assignment });
   }
-  // Not-done items first, done items sink to the bottom within each person's list.
   for (const person of Object.values(map)) {
     person.items.sort((a, b) => {
       const aDone = a.assignment.status === 'done' ? 1 : 0;
@@ -49,34 +87,84 @@ function weightMeta(weight: number) {
 export default function ChoresScreen() {
   const { token, user } = useAuth();
   const [chores, setChores] = useState<Chore[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [name, setName] = useState('');
-  const [frequency, setFrequency] = useState<typeof FREQUENCIES[number]>('weekly');
-  const [weight, setWeight] = useState(1);
-  const [editingChoreId, setEditingChoreId] = useState<string | null>(null);
-  const [editChoreName, setEditChoreName] = useState('');
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
 
-  const loadChores = useCallback(async () => {
+  const [choreType, setChoreType] = useState<'recurring' | 'one_time'>('recurring');
+  const [name, setName] = useState('');
+  const [frequency, setFrequency] = useState<typeof FREQUENCIES[number]>('weekly');
+  const [weight, setWeight] = useState(1);
+  const [weeklyWeekday, setWeeklyWeekday] = useState<number | null>(null);
+  const [monthlyScheduleDate, setMonthlyScheduleDate] = useState<string | null>(null);
+  const [oneTimeDueDate, setOneTimeDueDate] = useState('');
+  const [oneTimeAssigneeId, setOneTimeAssigneeId] = useState<string | null>(null);
+
+  const [editingChoreId, setEditingChoreId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editWeight, setEditWeight] = useState(1);
+  const [editFrequency, setEditFrequency] = useState<typeof FREQUENCIES[number]>('weekly');
+  const [editWeeklyWeekday, setEditWeeklyWeekday] = useState<number | null>(null);
+  const [editMonthlyScheduleDate, setEditMonthlyScheduleDate] = useState<string | null>(null);
+  const [editDueDate, setEditDueDate] = useState('');
+  const [editAssigneeId, setEditAssigneeId] = useState<string | null>(null);
+
+  const loadData = useCallback(async () => {
     try {
-      const data = await apiRequest('/chores', {}, token!);
-      setChores(data.chores);
+      const [choresData, membersData] = await Promise.all([
+        apiRequest('/chores', {}, token!),
+        apiRequest('/households/members', {}, token!),
+      ]);
+      setChores(choresData.chores);
+      setMembers(membersData.members);
     } catch (err: any) {
       setError(err.message);
     }
   }, [token]);
 
-  useFocusEffect(useCallback(() => { loadChores(); }, [loadChores]));
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
+
+  function resetAddForm() {
+    setName(''); setChoreType('recurring'); setFrequency('weekly'); setWeight(1);
+    setWeeklyWeekday(null); setMonthlyScheduleDate(null);
+    setOneTimeDueDate(''); setOneTimeAssigneeId(null);
+    setShowAddForm(false);
+  }
 
   async function handleCreate() {
     if (!name) return;
     setError('');
     try {
-      await apiRequest('/chores', { method: 'POST', body: JSON.stringify({ name, frequency, weight }) }, token!);
-      setName('');
-      setShowAddForm(false);
-      loadChores();
+      if (choreType === 'one_time') {
+        if (!oneTimeDueDate || !oneTimeAssigneeId) {
+          setError('Pick a due date and an assignee for a one-time chore');
+          return;
+        }
+        await apiRequest('/chores', {
+          method: 'POST',
+          body: JSON.stringify({ name, type: 'one_time', dueDate: oneTimeDueDate, assigneeId: oneTimeAssigneeId, weight }),
+        }, token!);
+      } else if (frequency === 'monthly') {
+        if (!monthlyScheduleDate) {
+          setError('Pick an example date on the calendar for a monthly chore');
+          return;
+        }
+        await apiRequest('/chores', {
+          method: 'POST',
+          body: JSON.stringify({ name, type: 'recurring', frequency, weight, scheduleDate: monthlyScheduleDate }),
+        }, token!);
+      } else {
+        await apiRequest('/chores', {
+          method: 'POST',
+          body: JSON.stringify({
+            name, type: 'recurring', frequency, weight,
+            ...(weeklyWeekday !== null ? { scheduleWeekday: weeklyWeekday } : {}),
+          }),
+        }, token!);
+      }
+      resetAddForm();
+      loadData();
     } catch (err: any) {
       setError(err.message);
     }
@@ -85,15 +173,14 @@ export default function ChoresScreen() {
   async function handleComplete(assignmentId: string) {
     try {
       await apiRequest(`/assignments/${assignmentId}/complete`, { method: 'PATCH' }, token!);
-      loadChores();
+      loadData();
     } catch (err: any) {
       setError(err.message);
     }
   }
 
   async function handleNudge(assignmentId: string, personName: string) {
-    setError('');
-    setFeedback('');
+    setError(''); setFeedback('');
     try {
       await apiRequest(`/assignments/${assignmentId}/nudge`, { method: 'POST' }, token!);
       setFeedback(`Nudged ${personName}! 👋`);
@@ -104,19 +191,46 @@ export default function ChoresScreen() {
 
   function startEdit(chore: Chore) {
     setEditingChoreId(chore.id);
-    setEditChoreName(chore.name);
+    setEditName(chore.name);
+    setEditWeight(chore.weight);
+    if (chore.type === 'recurring') {
+      setEditFrequency((chore.frequency as typeof FREQUENCIES[number]) || 'weekly');
+      setEditWeeklyWeekday(chore.scheduleWeekday ?? null);
+      if (chore.frequency === 'monthly' && chore.scheduleWeekday !== null && chore.scheduleOccurrence) {
+        const now = new Date();
+        const exampleDate = getNthWeekdayOfMonthLocal(now.getFullYear(), now.getMonth(), chore.scheduleWeekday, chore.scheduleOccurrence);
+        setEditMonthlyScheduleDate(toDateString(exampleDate));
+      } else {
+        setEditMonthlyScheduleDate(null);
+      }
+    } else {
+      const assignment = chore.assignments[0];
+      setEditDueDate(assignment ? toDateString(new Date(assignment.dueDate)) : '');
+      setEditAssigneeId(assignment ? assignment.userId : null);
+    }
   }
 
   function cancelEdit() {
     setEditingChoreId(null);
-    setEditChoreName('');
   }
 
-  async function saveEdit(choreId: string) {
+  async function saveEdit(chore: Chore) {
     try {
-      await apiRequest(`/chores/${choreId}`, { method: 'PATCH', body: JSON.stringify({ name: editChoreName }) }, token!);
+      const body: any = { name: editName, weight: editWeight };
+      if (chore.type === 'recurring') {
+        body.frequency = editFrequency;
+        if (editFrequency === 'monthly') {
+          if (editMonthlyScheduleDate) body.scheduleDate = editMonthlyScheduleDate;
+        } else if (editWeeklyWeekday !== null) {
+          body.scheduleWeekday = editWeeklyWeekday;
+        }
+      } else {
+        body.dueDate = editDueDate;
+        body.assigneeId = editAssigneeId;
+      }
+      await apiRequest(`/chores/${chore.id}`, { method: 'PATCH', body: JSON.stringify(body) }, token!);
       setEditingChoreId(null);
-      loadChores();
+      loadData();
     } catch (err: any) {
       setError(err.message);
     }
@@ -126,7 +240,7 @@ export default function ChoresScreen() {
     const performDelete = async () => {
       try {
         await apiRequest(`/chores/${choreId}`, { method: 'DELETE' }, token!);
-        loadChores();
+        loadData();
       } catch (err: any) {
         setError(err.message);
       }
@@ -160,20 +274,76 @@ export default function ChoresScreen() {
           <View style={styles.card}>
             <View style={styles.addFormHeader}>
               <Text style={styles.cardTitle}>New chore ✨</Text>
-              <Pressable onPress={() => setShowAddForm(false)}>
+              <Pressable onPress={resetAddForm}>
                 <Ionicons name="close" size={20} color={colors.ink} style={{ opacity: 0.5 }} />
               </Pressable>
             </View>
+
+            <View style={styles.chipRow}>
+              <Pressable onPress={() => setChoreType('recurring')} style={[styles.typeChip, choreType === 'recurring' && styles.chipSelected]}>
+                <Text style={[styles.chipText, choreType === 'recurring' && styles.chipTextSelected]}>🔁 Recurring</Text>
+              </Pressable>
+              <Pressable onPress={() => setChoreType('one_time')} style={[styles.typeChip, choreType === 'one_time' && styles.chipSelected]}>
+                <Text style={[styles.chipText, choreType === 'one_time' && styles.chipTextSelected]}>📌 One-time</Text>
+              </Pressable>
+            </View>
+
             <Text style={styles.label}>CHORE NAME</Text>
             <TextInput style={styles.input} placeholder="e.g. Scrub the sink..." placeholderTextColor="#999" value={name} onChangeText={setName} />
-            <Text style={styles.label}>FREQUENCY</Text>
-            <View style={styles.chipRow}>
-              {FREQUENCIES.map((f) => (
-                <Pressable key={f} onPress={() => setFrequency(f)} style={[styles.chip, frequency === f && styles.chipSelected]}>
-                  <Text style={[styles.chipText, frequency === f && styles.chipTextSelected]}>{f}</Text>
-                </Pressable>
-              ))}
-            </View>
+
+            {choreType === 'recurring' ? (
+              <>
+                <Text style={styles.label}>FREQUENCY</Text>
+                <View style={styles.chipRow}>
+                  {FREQUENCIES.map((f) => (
+                    <Pressable key={f} onPress={() => setFrequency(f)} style={[styles.chip, frequency === f && styles.chipSelected]}>
+                      <Text style={[styles.chipText, frequency === f && styles.chipTextSelected]}>{f}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                {(frequency === 'weekly' || frequency === 'biweekly') && (
+                  <>
+                    <Text style={styles.label}>PREFERRED DAY (OPTIONAL)</Text>
+                    <View style={styles.chipRow}>
+                      {WEEKDAYS.map((w) => (
+                        <Pressable
+                          key={w.value}
+                          onPress={() => setWeeklyWeekday(weeklyWeekday === w.value ? null : w.value)}
+                          style={[styles.chip, weeklyWeekday === w.value && styles.chipSelected]}
+                        >
+                          <Text style={[styles.chipText, weeklyWeekday === w.value && styles.chipTextSelected]}>{w.label}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </>
+                )}
+
+                {frequency === 'monthly' && (
+                  <>
+                    <Text style={styles.label}>PICK AN EXAMPLE DATE</Text>
+                    <CalendarPicker value={monthlyScheduleDate} onSelect={setMonthlyScheduleDate} />
+                    {monthlyScheduleDate && (
+                      <Text style={styles.patternPreview}>{describeMonthlyPattern(monthlyScheduleDate)}</Text>
+                    )}
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <Text style={styles.label}>DUE DATE</Text>
+                <CalendarPicker value={oneTimeDueDate || null} onSelect={setOneTimeDueDate} />
+                <Text style={styles.label}>ASSIGN TO</Text>
+                <View style={styles.chipRow}>
+                  {members.map((m) => (
+                    <Pressable key={m.id} onPress={() => setOneTimeAssigneeId(m.id)} style={[styles.chip, oneTimeAssigneeId === m.id && styles.chipSelected]}>
+                      <Text style={[styles.chipText, oneTimeAssigneeId === m.id && styles.chipTextSelected]}>{m.avatarEmoji} {m.name}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            )}
+
             <Text style={styles.label}>WEIGHT</Text>
             <View style={styles.chipRow}>
               {WEIGHTS.map((w) => (
@@ -182,6 +352,7 @@ export default function ChoresScreen() {
                 </Pressable>
               ))}
             </View>
+
             <Pressable onPress={handleCreate} style={styles.saveButton}>
               <Text style={styles.saveButtonText}>Save chore</Text>
             </Pressable>
@@ -201,29 +372,106 @@ export default function ChoresScreen() {
               const isDone = assignment.status === 'done';
               const isEditing = editingChoreId === chore.id;
               const wMeta = weightMeta(chore.weight);
+              const isOneTime = chore.type === 'one_time';
+
               return (
                 <View key={chore.id} style={[styles.choreCard, isDone && styles.choreCardDone]}>
                   <View style={styles.choreTopRow}>
                     <View style={[styles.statusCircle, isDone && styles.statusCircleDone]}>
                       {isDone && <Ionicons name="checkmark" size={14} color="#fff" />}
                     </View>
+
                     {isEditing ? (
-                      <TextInput style={[styles.input, { flex: 1 }]} value={editChoreName} onChangeText={setEditChoreName} autoFocus />
+                      <View style={{ flex: 1 }}>
+                        <TextInput style={styles.input} value={editName} onChangeText={setEditName} autoFocus />
+
+                        {chore.type === 'recurring' ? (
+                          <>
+                            <Text style={styles.label}>FREQUENCY</Text>
+                            <View style={styles.chipRow}>
+                              {FREQUENCIES.map((f) => (
+                                <Pressable key={f} onPress={() => setEditFrequency(f)} style={[styles.chip, editFrequency === f && styles.chipSelected]}>
+                                  <Text style={[styles.chipText, editFrequency === f && styles.chipTextSelected]}>{f}</Text>
+                                </Pressable>
+                              ))}
+                            </View>
+
+                            {(editFrequency === 'weekly' || editFrequency === 'biweekly') && (
+                              <>
+                                <Text style={styles.label}>PREFERRED DAY (OPTIONAL)</Text>
+                                <View style={styles.chipRow}>
+                                  {WEEKDAYS.map((w) => (
+                                    <Pressable
+                                      key={w.value}
+                                      onPress={() => setEditWeeklyWeekday(editWeeklyWeekday === w.value ? null : w.value)}
+                                      style={[styles.chip, editWeeklyWeekday === w.value && styles.chipSelected]}
+                                    >
+                                      <Text style={[styles.chipText, editWeeklyWeekday === w.value && styles.chipTextSelected]}>{w.label}</Text>
+                                    </Pressable>
+                                  ))}
+                                </View>
+                              </>
+                            )}
+
+                            {editFrequency === 'monthly' && (
+                              <>
+                                <Text style={styles.label}>NEW EXAMPLE DATE (LEAVE BLANK TO KEEP CURRENT PATTERN)</Text>
+                                <CalendarPicker value={editMonthlyScheduleDate} onSelect={setEditMonthlyScheduleDate} />
+                                {editMonthlyScheduleDate && (
+                                  <Text style={styles.patternPreview}>{describeMonthlyPattern(editMonthlyScheduleDate)}</Text>
+                                )}
+                              </>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <Text style={styles.label}>DUE DATE</Text>
+                            <CalendarPicker value={editDueDate || null} onSelect={setEditDueDate} />
+                            <Text style={styles.label}>ASSIGN TO</Text>
+                            <View style={styles.chipRow}>
+                              {members.map((m) => (
+                                <Pressable key={m.id} onPress={() => setEditAssigneeId(m.id)} style={[styles.chip, editAssigneeId === m.id && styles.chipSelected]}>
+                                  <Text style={[styles.chipText, editAssigneeId === m.id && styles.chipTextSelected]}>{m.avatarEmoji} {m.name}</Text>
+                                </Pressable>
+                              ))}
+                            </View>
+                          </>
+                        )}
+
+                        <Text style={styles.label}>WEIGHT</Text>
+                        <View style={styles.chipRow}>
+                          {WEIGHTS.map((w) => (
+                            <Pressable key={w.value} onPress={() => setEditWeight(w.value)} style={[styles.chip, editWeight === w.value && styles.chipSelected]}>
+                              <Text style={[styles.chipText, editWeight === w.value && styles.chipTextSelected]}>{w.label}</Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      </View>
                     ) : (
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.choreName, isDone && styles.doneText]}>{chore.name}</Text>
                         <View style={styles.tagRow}>
-                          <View style={styles.tag}><Text style={styles.tagText}>{chore.frequency}</Text></View>
+                          {isOneTime ? (
+                            <View style={[styles.tag, { backgroundColor: colors.mist }]}><Text style={styles.tagText}>📌 one-time</Text></View>
+                          ) : (
+                            <View style={styles.tag}><Text style={styles.tagText}>{chore.frequency}</Text></View>
+                          )}
                           <View style={[styles.tag, { backgroundColor: wMeta.bg }]}><Text style={[styles.tagText, { color: wMeta.color }]}>{wMeta.icon} {wMeta.label}</Text></View>
                           {isOverdue && <View style={[styles.tag, { backgroundColor: colors.terracottaTint }]}><Text style={[styles.tagText, { color: colors.terracotta }]}>overdue</Text></View>}
                         </View>
                       </View>
                     )}
+
+                    {!isEditing && (
+                      <Text style={[styles.dueDateText, isOverdue && styles.dueDateOverdue]}>
+                        Due {new Date(assignment.dueDate).toLocaleDateString()}
+                      </Text>
+                    )}
                   </View>
                   <View style={styles.divider} />
                   {isEditing ? (
                     <View style={styles.actionRow}>
-                      <Pressable onPress={() => saveEdit(chore.id)} style={[styles.markDoneButton, { backgroundColor: colors.sageTint }]}>
+                      <Pressable onPress={() => saveEdit(chore)} style={[styles.markDoneButton, { backgroundColor: colors.sageTint }]}>
                         <Text style={styles.markDoneText}>Save</Text>
                       </Pressable>
                       <Pressable onPress={cancelEdit} style={styles.iconButton}>
@@ -273,12 +521,14 @@ const styles = StyleSheet.create({
   addFormHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   cardTitle: { fontSize: 17, fontWeight: '700', color: colors.ink },
   label: { fontSize: 11, fontWeight: '700', color: colors.ink, opacity: 0.5, letterSpacing: 0.5, marginBottom: 8, marginTop: 12 },
-  input: { borderWidth: 1, borderColor: colors.mist, borderRadius: radius.md, padding: 12, color: colors.ink, backgroundColor: colors.cream },
+  input: { borderWidth: 1, borderColor: colors.mist, borderRadius: radius.md, padding: 12, color: colors.ink, backgroundColor: colors.cream, marginBottom: 8 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: radius.md, backgroundColor: colors.cream, borderWidth: 1, borderColor: colors.mist },
+  typeChip: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: radius.md, backgroundColor: colors.cream, borderWidth: 1, borderColor: colors.mist },
   chipSelected: { backgroundColor: colors.sage, borderColor: colors.sage },
   chipText: { color: colors.ink, fontSize: 13 },
   chipTextSelected: { color: '#fff', fontWeight: '600' },
+  patternPreview: { fontSize: 12, color: colors.sage, fontWeight: '600', marginTop: 4, fontStyle: 'italic' },
   saveButton: { backgroundColor: colors.sage, borderRadius: radius.md, paddingVertical: 14, alignItems: 'center', marginTop: 16, ...shadow },
   saveButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   personHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10, marginTop: 8 },
@@ -295,6 +545,8 @@ const styles = StyleSheet.create({
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   tag: { backgroundColor: colors.mist, borderRadius: radius.sm, paddingVertical: 4, paddingHorizontal: 10 },
   tagText: { fontSize: 11, color: colors.ink, fontWeight: '600' },
+  dueDateText: { fontSize: 12, color: colors.ink, opacity: 0.6, fontWeight: '600' },
+  dueDateOverdue: { color: colors.terracotta, opacity: 1 },
   divider: { height: 1, backgroundColor: colors.mist, marginBottom: 12 },
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   markDoneButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.sageTint, borderRadius: radius.md, paddingVertical: 10 },
@@ -303,8 +555,6 @@ const styles = StyleSheet.create({
   markDoneTextComplete: { color: colors.ink, opacity: 0.6, fontWeight: '700', fontSize: 13 },
   iconButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.sageTint, alignItems: 'center', justifyContent: 'center' },
   iconButtonDanger: { backgroundColor: colors.terracottaTint },
-  error: { color: '#B5544A', marginBottom: 12, textAlign: 'center' },
   nudgeButton: { backgroundColor: colors.terracottaTint },
   nudgeText: { color: colors.terracotta, fontWeight: '700', fontSize: 13 },
-  feedback: { color: colors.sage, marginBottom: 12, textAlign: 'center', fontWeight: '600' },
 });

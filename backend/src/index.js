@@ -76,6 +76,63 @@ function requireAuth(req, res, next) {
 const FREQUENCY_DAYS = { daily: 1, weekly: 7, biweekly: 14, monthly: 30 };
 const XP_PER_WEIGHT = 10;
 
+const OCCURRENCE_INDEX = { first: 0, second: 1, third: 2, fourth: 3 };
+
+function getNthWeekdayOfMonth(year, month, weekday, occurrence) {
+  if (occurrence === 'last') {
+    const lastDayOfMonth = new Date(year, month + 1, 0);
+    const diff = (lastDayOfMonth.getDay() - weekday + 7) % 7;
+    lastDayOfMonth.setDate(lastDayOfMonth.getDate() - diff);
+    return lastDayOfMonth;
+  }
+  const firstOfMonth = new Date(year, month, 1);
+  const offset = (weekday - firstOfMonth.getDay() + 7) % 7;
+  const day = 1 + offset + OCCURRENCE_INDEX[occurrence] * 7;
+  return new Date(year, month, day);
+}
+
+function endOfDay(date) {
+  const d = new Date(date);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
+function parseLocalDate(dateString) {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day); // JS months are 0-indexed
+}
+
+function getNextMonthlyDueDate(currentDueDate, weekday, occurrence) {
+  const next = new Date(currentDueDate);
+  next.setMonth(next.getMonth() + 1);
+  return endOfDay(getNthWeekdayOfMonth(next.getFullYear(), next.getMonth(), weekday, occurrence));
+}
+
+function getFirstMonthlyDueDate(weekday, occurrence) {
+  const now = new Date();
+  const candidate = getNthWeekdayOfMonth(now.getFullYear(), now.getMonth(), weekday, occurrence);
+  if (candidate < now) {
+    return getNextMonthlyDueDate(candidate, weekday, occurrence);
+  }
+  return endOfDay(candidate);
+}
+
+function getOccurrenceOfWeekday(date) {
+  const day = date.getDate();
+  const weekday = date.getDay();
+  const occurrenceIndex = Math.floor((day - 1) / 7);
+  const OCCURRENCE_NAMES = ['first', 'second', 'third', 'fourth'];
+  const occurrence = occurrenceIndex < 4 ? OCCURRENCE_NAMES[occurrenceIndex] : 'last';
+  return { weekday, occurrence };
+}
+
+function getNextWeekdayOnOrAfter(startDate, weekday) {
+  const result = new Date(startDate);
+  const diff = (weekday - result.getDay() + 7) % 7;
+  result.setDate(result.getDate() + diff);
+  return result;
+}
+
 function calculateAvatarLevel(xp) {
   return Math.floor(Math.sqrt(xp / 50)) + 1;
 }
@@ -105,6 +162,25 @@ async function advanceRotation(db, choreId) {
 // Catches up any assignments whose due date has passed, even if never completed  
 // marks the missed one "overdue" and rotates to the next person
 async function ensureAssignmentsUpToDate(chore) {
+  if (chore.type === 'one_time') {
+    const assignment = await prisma.assignment.findFirst({ where: { choreId: chore.id } });
+    if (assignment && assignment.dueDate < new Date() && !assignment.completedAt && assignment.status !== 'overdue') {
+      const penalty = chore.weight * XP_PER_WEIGHT;
+      await prisma.$transaction(async (tx) => {
+        await tx.assignment.update({ where: { id: assignment.id }, data: { status: 'overdue' } });
+        const missedUser = await tx.user.findUnique({ where: { id: assignment.userId } });
+        const newXp = Math.max(0, missedUser.xp - penalty);
+        const newLevel = Math.max(missedUser.avatarLevel, calculateAvatarLevel(newXp));
+        await tx.user.update({ where: { id: assignment.userId }, data: { xp: newXp, avatarLevel: newLevel } });
+        await tx.household.update({ where: { id: chore.householdId }, data: { streakCount: 0 } });
+        await tx.notification.create({
+          data: { userId: assignment.userId, type: 'chore_overdue', content: `You missed "${chore.name}" — lost ${penalty} XP` },
+        });
+      });
+    }
+    return;
+  }
+
   const intervalMs = FREQUENCY_DAYS[chore.frequency] * 24 * 60 * 60 * 1000;
 
   let latest = await prisma.assignment.findFirst({
@@ -115,24 +191,17 @@ async function ensureAssignmentsUpToDate(chore) {
   while (latest && latest.dueDate < new Date()) {
     if (!latest.completedAt && latest.status !== 'overdue') {
       const penalty = chore.weight * XP_PER_WEIGHT;
+      const missedUserId = latest.userId;
 
       await prisma.$transaction(async (tx) => {
-        await tx.assignment.update({
-          where: { id: latest.id },
-          data: { status: 'overdue' },
-        });
-
-        const missedUser = await tx.user.findUnique({ where: { id: latest.userId } });
+        await tx.assignment.update({ where: { id: latest.id }, data: { status: 'overdue' } });
+        const missedUser = await tx.user.findUnique({ where: { id: missedUserId } });
         const newXp = Math.max(0, missedUser.xp - penalty);
         const newLevel = Math.max(missedUser.avatarLevel, calculateAvatarLevel(newXp));
-        await tx.user.update({
-          where: { id: latest.userId },
-          data: { xp: newXp, avatarLevel: newLevel },
-        });
-
-        await tx.household.update({
-          where: { id: chore.householdId },
-          data: { streakCount: 0 },
+        await tx.user.update({ where: { id: missedUserId }, data: { xp: newXp, avatarLevel: newLevel } });
+        await tx.household.update({ where: { id: chore.householdId }, data: { streakCount: 0 } });
+        await tx.notification.create({
+          data: { userId: missedUserId, type: 'chore_overdue', content: `You missed "${chore.name}" — lost ${penalty} XP` },
         });
       });
     }
@@ -140,22 +209,19 @@ async function ensureAssignmentsUpToDate(chore) {
     const assignee = await getNextAssignee(prisma, chore.id, chore.householdId);
     await advanceRotation(prisma, chore.id);
 
+    const nextDueDate = chore.frequency === 'monthly'
+      ? getNextMonthlyDueDate(latest.dueDate, chore.scheduleWeekday, chore.scheduleOccurrence)
+      : endOfDay(new Date(latest.dueDate.getTime() + intervalMs));
+
     latest = await prisma.assignment.create({
-      data: {
-        choreId: chore.id,
-        userId: assignee.id,
-        dueDate: new Date(latest.dueDate.getTime() + intervalMs),
-      },
+      data: { choreId: chore.id, userId: assignee.id, dueDate: nextDueDate },
     });
   }
 }
 
 app.patch('/chores/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
-  const { name } = req.body;
-  if (!name) {
-    return res.status(400).json({ error: 'name is required' });
-  }
+  const { name, weight, frequency, scheduleWeekday, scheduleDate, dueDate, assigneeId } = req.body;
 
   const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
   const chore = await prisma.chore.findUnique({ where: { id } });
@@ -167,7 +233,57 @@ app.patch('/chores/:id', requireAuth, async (req, res) => {
     return res.status(403).json({ error: 'This chore is not in your household' });
   }
 
-  const updated = await prisma.chore.update({ where: { id }, data: { name } });
+  const data = {};
+  if (name !== undefined) data.name = name;
+  if (weight !== undefined) data.weight = weight;
+
+  let newPendingDueDate = null;
+
+  if (chore.type === 'recurring') {
+    const finalFrequency = frequency !== undefined ? frequency : chore.frequency;
+    if (frequency !== undefined) data.frequency = frequency;
+
+    if (finalFrequency === 'monthly' && scheduleDate) {
+      const exampleDate = parseLocalDate(scheduleDate);
+      const { weekday, occurrence } = getOccurrenceOfWeekday(exampleDate);
+      data.scheduleWeekday = weekday;
+      data.scheduleOccurrence = occurrence;
+      newPendingDueDate = getFirstMonthlyDueDate(weekday, occurrence);
+    } else if ((finalFrequency === 'weekly' || finalFrequency === 'biweekly') && scheduleWeekday !== undefined) {
+      data.scheduleWeekday = scheduleWeekday;
+      data.scheduleOccurrence = null;
+      newPendingDueDate = endOfDay(getNextWeekdayOnOrAfter(new Date(), scheduleWeekday));
+    } else if (frequency !== undefined && finalFrequency !== 'monthly') {
+      data.scheduleOccurrence = null;
+    }
+  }
+
+  const updated = await prisma.chore.update({ where: { id }, data });
+
+  // Reflect the new pattern on the current cycle immediately — but only if
+  // nothing has happened to it yet. A done/overdue assignment is a resolved
+  // past event for this cycle and is left untouched; the new pattern applies
+  // starting next rotation in that case.
+  if (newPendingDueDate) {
+    const pendingAssignment = await prisma.assignment.findFirst({
+      where: { choreId: id, status: 'pending' },
+      orderBy: { dueDate: 'desc' },
+    });
+    if (pendingAssignment) {
+      await prisma.assignment.update({ where: { id: pendingAssignment.id }, data: { dueDate: newPendingDueDate } });
+    }
+  }
+
+  if (chore.type === 'one_time' && (dueDate !== undefined || assigneeId !== undefined)) {
+    const assignment = await prisma.assignment.findFirst({ where: { choreId: id } });
+    if (assignment) {
+      const assignmentData = {};
+      if (dueDate !== undefined) assignmentData.dueDate = endOfDay(parseLocalDate(dueDate));
+      if (assigneeId !== undefined) assignmentData.userId = assigneeId;
+      await prisma.assignment.update({ where: { id: assignment.id }, data: assignmentData });
+    }
+  }
+
   res.json({ chore: updated });
 });
 
@@ -405,9 +521,11 @@ app.delete('/announcements/:id', requireAuth, async (req, res) => {
 // ROUTES — chores (create + assign, list with auto catch-up)
 // ============================================================
 app.post('/chores', requireAuth, async (req, res) => {
-  const { name, frequency, weight } = req.body;
-  if (!name || !frequency) {
-    return res.status(400).json({ error: 'name and frequency are required' });
+  const { name, type, frequency, weight, scheduleWeekday, scheduleDate, dueDate, assigneeId } = req.body;
+  const choreType = type || 'recurring';
+
+  if (!name) {
+    return res.status(400).json({ error: 'name is required' });
   }
 
   const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
@@ -415,22 +533,59 @@ app.post('/chores', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'You must join a household first' });
   }
 
+  if (choreType === 'one_time') {
+    if (!dueDate || !assigneeId) {
+      return res.status(400).json({ error: 'dueDate and assigneeId are required for one-time chores' });
+    }
+    const assignee = await prisma.user.findUnique({ where: { id: assigneeId } });
+    if (!assignee || assignee.householdId !== currentUser.householdId) {
+      return res.status(400).json({ error: 'assigneeId must be a member of your household' });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const chore = await tx.chore.create({
+        data: { name, type: 'one_time', weight: weight || 1, householdId: currentUser.householdId },
+      });
+      const assignment = await tx.assignment.create({
+        data: { choreId: chore.id, userId: assigneeId, dueDate: endOfDay(parseLocalDate(dueDate)) },
+      });
+      return { chore, assignment };
+    });
+
+    return res.json(result);
+  }
+
+  if (!frequency) {
+    return res.status(400).json({ error: 'frequency is required for recurring chores' });
+  }
+
+  let scheduleData = {};
+  let firstDueDate;
+
+  if (frequency === 'monthly') {
+    if (!scheduleDate) {
+      return res.status(400).json({ error: 'scheduleDate is required for monthly chores' });
+    }
+    const exampleDate = parseLocalDate(scheduleDate);
+    const { weekday, occurrence } = getOccurrenceOfWeekday(exampleDate);
+    scheduleData = { scheduleWeekday: weekday, scheduleOccurrence: occurrence };
+    firstDueDate = getFirstMonthlyDueDate(weekday, occurrence);
+  } else if ((frequency === 'weekly' || frequency === 'biweekly') && scheduleWeekday !== undefined) {
+    scheduleData = { scheduleWeekday };
+    firstDueDate = endOfDay(getNextWeekdayOnOrAfter(new Date(), scheduleWeekday));
+  } else {
+    firstDueDate = endOfDay(new Date(Date.now() + FREQUENCY_DAYS[frequency] * 24 * 60 * 60 * 1000));
+  }
+
   const result = await prisma.$transaction(async (tx) => {
     const chore = await tx.chore.create({
-      data: { name, frequency, weight: weight || 1, householdId: currentUser.householdId },
+      data: { name, type: 'recurring', frequency, weight: weight || 1, householdId: currentUser.householdId, ...scheduleData },
     });
-
     const assignee = await getNextAssignee(tx, chore.id, chore.householdId);
     await advanceRotation(tx, chore.id);
-
     const assignment = await tx.assignment.create({
-      data: {
-        choreId: chore.id,
-        userId: assignee.id,
-        dueDate: new Date(Date.now() + FREQUENCY_DAYS[frequency] * 24 * 60 * 60 * 1000),
-      },
+      data: { choreId: chore.id, userId: assignee.id, dueDate: firstDueDate },
     });
-
     return { chore, assignment };
   });
 
