@@ -142,6 +142,11 @@ export default function ChoresScreen() {
   }
 
   const people = groupByPerson(chores);
+  people.sort((a, b) => {
+    if (a.userId === user?.id) return -1;
+    if (b.userId === user?.id) return 1;
+    return 0;
+  });
 
   return (
     <View style={{ flex: 1 }}>

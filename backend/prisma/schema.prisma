@@ -48,6 +48,7 @@ model Chore {
   frequency     String
   weight        Int      @default(1)
   rotationIndex Int      @default(0)
+  createdAt     DateTime @default(now())
   assignments   Assignment[]
 }
 

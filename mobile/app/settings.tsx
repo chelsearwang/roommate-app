@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { View, Text, TextInput, ScrollView, Pressable, StyleSheet, Alert, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '@/context/AuthContext';
 import { apiRequest } from '@/utils/api';
 import { CozyButton } from '@/components/CozyButton';
@@ -11,7 +12,7 @@ import { colors, radius, shadow } from '@/constants/colors';
 type Member = { id: string; name: string; avatarEmoji: string };
 
 export default function SettingsScreen() {
-  const { token, user, refreshUser } = useAuth();
+  const { token, user, refreshUser, logout } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [householdName, setHouseholdName] = useState('');
   const [avatarEmoji, setAvatarEmoji] = useState('🐰');
@@ -75,6 +76,12 @@ export default function SettingsScreen() {
     }
   }
 
+  const sortedMembers = [...members].sort((a, b) => {
+    if (a.id === user?.id) return -1;
+    if (b.id === user?.id) return 1;
+    return 0;
+  });
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <ScreenHeader eyebrow="ACCOUNT" title="Settings" emoji="⚙️" />
@@ -96,22 +103,27 @@ export default function SettingsScreen() {
           <>
             <TextInput style={styles.input} value={householdName} onChangeText={setHouseholdName} />
             <View style={styles.editRow}>
-              <CozyButton title="Save" onPress={saveName} />
-              <Pressable onPress={() => setEditingName(false)} style={styles.cancelButton}>
-                <Text style={styles.cancelText}>Cancel</Text>
+              <Pressable onPress={saveName} style={styles.saveEditButton}>
+                <Text style={styles.saveEditText}>Save</Text>
+              </Pressable>
+              <Pressable onPress={() => setEditingName(false)} style={styles.iconButton}>
+                <Ionicons name="close" size={15} color={colors.ink} />
               </Pressable>
             </View>
           </>
         ) : (
-          <Pressable onPress={() => setEditingName(true)}>
-            <Text style={styles.householdName}>{householdName} ✏️</Text>
-          </Pressable>
+          <View style={styles.nameRow}>
+            <Text style={styles.householdName}>{householdName}</Text>
+            <Pressable onPress={() => setEditingName(true)} style={styles.iconButton}>
+              <Ionicons name="create-outline" size={15} color={colors.sage} />
+            </Pressable>
+          </View>
         )}
       </View>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Members</Text>
-        {members.map((m) => (
+        {sortedMembers.map((m) => (
           <View key={m.id} style={styles.memberRow}>
             <Text style={styles.memberAvatar}>{m.avatarEmoji}</Text>
             <Text style={styles.memberName}>{m.name}{m.id === user?.id ? ' (you)' : ''}</Text>
@@ -121,6 +133,7 @@ export default function SettingsScreen() {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
+      <CozyButton title="Log out" onPress={logout} />
       <CozyButton title="Leave household" variant="secondary" onPress={handleLeave} />
     </ScrollView>
   );
@@ -135,13 +148,17 @@ const styles = StyleSheet.create({
   avatarOption: { width: 50, height: 50, borderRadius: 25, backgroundColor: colors.cream, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
   avatarOptionSelected: { borderColor: colors.sage, backgroundColor: colors.sageTint },
   avatarOptionEmoji: { fontSize: 24 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   householdName: { fontSize: 18, fontWeight: '700', color: colors.ink },
   input: { borderWidth: 1, borderColor: colors.mist, borderRadius: radius.sm, padding: 12, color: colors.ink, backgroundColor: colors.cream, marginBottom: 12 },
   editRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   cancelButton: { paddingVertical: 8 },
   cancelText: { color: colors.ink, opacity: 0.6 },
+  iconButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.sageTint, alignItems: 'center', justifyContent: 'center' },
   memberRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.mist },
   memberAvatar: { fontSize: 18 },
   memberName: { fontSize: 15, color: colors.ink },
   error: { color: '#B5544A', marginBottom: 12, textAlign: 'center' },
+  saveEditButton: { backgroundColor: colors.sageTint, borderRadius: radius.md, paddingVertical: 10, paddingHorizontal: 20 },
+  saveEditText: { color: colors.sage, fontWeight: '700', fontSize: 14 },
 });

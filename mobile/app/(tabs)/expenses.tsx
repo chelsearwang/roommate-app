@@ -25,6 +25,9 @@ export default function ExpensesScreen() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
+  const [editDescription, setEditDescription] = useState('');
+  const [editAmount, setEditAmount] = useState('');
   const [error, setError] = useState('');
 
   const loadData = useCallback(async () => {
@@ -77,6 +80,32 @@ export default function ExpensesScreen() {
     }
   }
 
+  function startEditExpense(e: Expense) {
+    setEditingExpenseId(e.id);
+    setEditDescription(e.description);
+    setEditAmount(String(e.amount));
+  }
+
+  function cancelEditExpense() {
+    setEditingExpenseId(null);
+    setEditDescription('');
+    setEditAmount('');
+  }
+
+  async function saveEditExpense(id: string) {
+    const parsedAmount = parseFloat(editAmount);
+    try {
+      await apiRequest(`/expenses/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ description: editDescription, amount: parsedAmount }),
+      }, token!);
+      setEditingExpenseId(null);
+      loadData();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <ScreenHeader eyebrow="MONEY" title="Expenses" emoji="💸" rightAction={{ label: 'Log expense', onPress: () => setShowAddForm(true) }} />
@@ -121,13 +150,34 @@ export default function ExpensesScreen() {
       <Text style={styles.sectionTitle}>History</Text>
       {expenses.map((e) => {
         const isSettled = e.shares.every((s) => s.settled);
+        const isEditing = editingExpenseId === e.id;
         return (
           <View key={e.id} style={[styles.historyRow, isSettled && styles.historyRowSettled]}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.historyDesc}>{e.description}</Text>
-              <Text style={styles.historyMeta}>{e.payer?.name} · {new Date(e.createdAt).toLocaleDateString()}</Text>
-            </View>
-            <Text style={styles.historyAmount}>${Number(e.amount).toFixed(2)}</Text>
+            {isEditing ? (
+              <View style={{ flex: 1 }}>
+                <TextInput style={styles.input} value={editDescription} onChangeText={setEditDescription} />
+                <TextInput style={styles.input} value={editAmount} onChangeText={setEditAmount} keyboardType="decimal-pad" />
+                <View style={styles.editActionRow}>
+                  <Pressable onPress={() => saveEditExpense(e.id)} style={styles.editSaveButton}>
+                    <Text style={styles.editSaveText}>Save</Text>
+                  </Pressable>
+                  <Pressable onPress={cancelEditExpense} style={styles.iconButton}>
+                    <Ionicons name="close" size={15} color={colors.ink} />
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.historyDesc}>{e.description}</Text>
+                  <Text style={styles.historyMeta}>{e.payer?.name} · {new Date(e.createdAt).toLocaleDateString()}</Text>
+                </View>
+                <Text style={styles.historyAmount}>${Number(e.amount).toFixed(2)}</Text>
+                <Pressable onPress={() => startEditExpense(e)} style={styles.iconButton}>
+                  <Ionicons name="create-outline" size={15} color={colors.sage} />
+                </Pressable>
+              </>
+            )}
           </View>
         );
       })}
@@ -151,7 +201,10 @@ const styles = StyleSheet.create({
   bold: { fontWeight: '700' },
   amount: { color: colors.terracotta, fontWeight: '700' },
   iconButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.sageTint, alignItems: 'center', justifyContent: 'center' },
-  historyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderRadius: radius.md, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: colors.mist, ...shadow },
+  editActionRow: { flexDirection: 'row', gap: 8 },
+  editSaveButton: { backgroundColor: colors.sageTint, borderRadius: radius.md, paddingVertical: 8, paddingHorizontal: 16, alignItems: 'center' },
+  editSaveText: { color: colors.sage, fontWeight: '700', fontSize: 13 },
+  historyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, backgroundColor: colors.surface, borderRadius: radius.md, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: colors.mist, ...shadow },
   historyRowSettled: { opacity: 0.5 },
   historyDesc: { color: colors.ink, fontSize: 15, fontWeight: '500' },
   historyMeta: { color: colors.ink, opacity: 0.6, fontSize: 12, marginTop: 2 },

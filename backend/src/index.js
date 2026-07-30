@@ -340,7 +340,7 @@ app.get('/announcements', requireAuth, async (req, res) => {
   // Pinned posts float to the top as a group; within each group, newest first.
   const announcements = await prisma.announcement.findMany({
     where: { householdId: currentUser.householdId },
-    orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }, { createdAt: 'desc' }],
+    orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }, { id: 'asc' }],
     include: { author: true },
   });
 
@@ -452,8 +452,9 @@ app.get('/chores', requireAuth, async (req, res) => {
 
   const updatedChores = await prisma.chore.findMany({
     where: { householdId: currentUser.householdId },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     include: {
-      assignments: { orderBy: { dueDate: 'desc' }, take: 1, include: { user: true } }, // most recent assignment only
+      assignments: { orderBy: { dueDate: 'desc' }, take: 1, include: { user: true } },
     },
   });
 
@@ -517,6 +518,20 @@ app.patch('/assignments/:id/complete', requireAuth, async (req, res) => {
       where: { id: assignment.chore.householdId },
       data: wasOnTime ? { streakCount: { increment: 1 } } : { streakCount: 0 },
     });
+
+    const householdMembers = await tx.user.findMany({
+      where: { householdId: assignment.chore.householdId, id: { not: req.userId } },
+    });
+
+    await Promise.all(householdMembers.map((member) =>
+      tx.notification.create({
+        data: {
+          userId: member.id,
+          type: 'chore_completed',
+          content: `${user.name} completed "${assignment.chore.name}" ✅`,
+        },
+      })
+    ));
 
     return { assignment: updatedAssignment, user: updatedUser, xpEarned };
   });
@@ -623,7 +638,7 @@ app.get('/expenses', requireAuth, async (req, res) => {
 
   const expenses = await prisma.expense.findMany({
     where: { householdId: currentUser.householdId },
-    orderBy: { createdAt: 'desc' },
+    orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
     include: { payer: true, shares: true },
   });
 
@@ -655,6 +670,42 @@ app.post('/households/settle-up/confirm', requireAuth, async (req, res) => {
   });
 
   res.json({ settled: true });
+});
+
+app.patch('/expenses/:id', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const { description, amount } = req.body;
+
+  const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+  const expense = await prisma.expense.findUnique({ where: { id } });
+
+  if (!expense) {
+    return res.status(404).json({ error: 'Expense not found' });
+  }
+  if (expense.householdId !== currentUser.householdId) {
+    return res.status(403).json({ error: 'This expense is not in your household' });
+  }
+
+  const householdUsers = await prisma.user.findMany({ where: { householdId: currentUser.householdId } });
+  const splitAmount = amount !== undefined ? amount / householdUsers.length : null;
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const exp = await tx.expense.update({
+      where: { id },
+      data: {
+        ...(description !== undefined ? { description } : {}),
+        ...(amount !== undefined ? { amount } : {}),
+      },
+    });
+
+    if (amount !== undefined) {
+      await tx.expenseShare.updateMany({ where: { expenseId: id }, data: { amount: splitAmount } });
+    }
+
+    return exp;
+  });
+
+  res.json({ expense: updated });
 });
 
 // ============================================================

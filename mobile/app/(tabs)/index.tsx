@@ -153,9 +153,13 @@ export default function DashboardScreen() {
           announcements.map((a, i) => (
             <View key={a.id} style={[styles.announcementItem, i < announcements.length - 1 && styles.announcementDivider]}>
               <View style={styles.announcementTopRow}>
-                {a.pinned && <Ionicons name="pin" size={12} color={colors.terracotta} />}
                 <Text style={styles.announcementAuthor}>{a.author?.name}</Text>
-                <Text style={styles.announcementTime}>{formatRelativeTime(a.createdAt)}</Text>
+                <View style={styles.rightGroup}>
+                  <Text style={styles.announcementTime}>{formatRelativeTime(a.createdAt)}</Text>
+                  <View style={styles.pinSlot}>
+                    {a.pinned && <Ionicons name="pin" size={12} color={colors.terracotta} />}
+                  </View>
+                </View>
               </View>
               <Text style={styles.announcementContent} numberOfLines={1}>{a.content}</Text>
             </View>
@@ -211,7 +215,9 @@ const styles = StyleSheet.create({
   announcementDivider: { borderBottomWidth: 1, borderBottomColor: colors.mist },
   announcementTopRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
   announcementAuthor: { fontWeight: '700', color: colors.ink, fontSize: 13 },
-  announcementTime: { color: colors.ink, opacity: 0.5, fontSize: 12, marginLeft: 'auto' },
+  announcementTime: { color: colors.ink, opacity: 0.5, fontSize: 12 },
+  rightGroup: { flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 'auto' },
+  pinSlot: { width: 14, alignItems: 'center' },
   announcementContent: { color: colors.ink, opacity: 0.8, fontSize: 13 },
   buttonGrid: { flexDirection: 'row', gap: 12 },
   navCard: { flex: 1, borderRadius: radius.lg, padding: 20, alignItems: 'center', ...shadow },
