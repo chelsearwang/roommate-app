@@ -61,12 +61,13 @@ type PersonRow = { userId: string; name: string; avatarEmoji: string; items: { c
 function groupByPerson(chores: Chore[]): PersonRow[] {
   const map: Record<string, PersonRow> = {};
   for (const chore of chores) {
-    const assignment = chore.assignments[0];
-    if (!assignment || !assignment.user) continue;
-    if (!map[assignment.userId]) {
-      map[assignment.userId] = { userId: assignment.userId, name: assignment.user.name, avatarEmoji: assignment.user.avatarEmoji, items: [] };
+    for (const assignment of chore.assignments) {
+      if (!assignment.user) continue;
+      if (!map[assignment.userId]) {
+        map[assignment.userId] = { userId: assignment.userId, name: assignment.user.name, avatarEmoji: assignment.user.avatarEmoji, items: [] };
+      }
+      map[assignment.userId].items.push({ chore, assignment });
     }
-    map[assignment.userId].items.push({ chore, assignment });
   }
   for (const person of Object.values(map)) {
     person.items.sort((a, b) => {
@@ -375,7 +376,7 @@ export default function ChoresScreen() {
               const isOneTime = chore.type === 'one_time';
 
               return (
-                <View key={chore.id} style={[styles.choreCard, isDone && styles.choreCardDone]}>
+                <View key={assignment.id} style={[styles.choreCard, isDone && styles.choreCardDone]}>
                   <View style={styles.choreTopRow}>
                     <View style={[styles.statusCircle, isDone && styles.statusCircleDone]}>
                       {isDone && <Ionicons name="checkmark" size={14} color="#fff" />}

@@ -51,10 +51,9 @@ export default function DashboardScreen() {
 
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
-  const myOverdueCount = chores.filter((c) => {
-    const a = c.assignments[0];
-    return a && a.userId === user?.id && a.status === 'overdue';
-  }).length;
+  const myOverdueCount = chores.filter((c) =>
+    c.assignments.some((a) => a.userId === user?.id && a.status === 'overdue')
+  ).length;
 
   const myPendingCount = chores.filter((c) => {
     const a = c.assignments[0];

@@ -219,6 +219,36 @@ async function ensureAssignmentsUpToDate(chore) {
   }
 }
 
+const OVERDUE_REMINDER_INTERVAL_MS = 12 * 60 * 60 * 1000; // 12 hours
+
+async function sendOverdueReminders(chore) {
+  const overdueAssignments = await prisma.assignment.findMany({
+    where: { choreId: chore.id, status: 'overdue' },
+  });
+
+  for (const assignment of overdueAssignments) {
+    const cooldownStart = new Date(Date.now() - OVERDUE_REMINDER_INTERVAL_MS);
+    const recentReminder = await prisma.notification.findFirst({
+      where: {
+        userId: assignment.userId,
+        type: 'chore_overdue_reminder',
+        relatedAssignmentId: assignment.id,
+        createdAt: { gte: cooldownStart },
+      },
+    });
+    if (!recentReminder) {
+      await prisma.notification.create({
+        data: {
+          userId: assignment.userId,
+          type: 'chore_overdue_reminder',
+          relatedAssignmentId: assignment.id,
+          content: `Reminder: "${chore.name}" is still overdue`,
+        },
+      });
+    }
+  }
+}
+
 app.patch('/chores/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   const { name, weight, frequency, scheduleWeekday, scheduleDate, dueDate, assigneeId } = req.body;
@@ -367,9 +397,9 @@ app.get('/households/stats', requireAuth, async (req, res) => {
 
   const chores = await prisma.chore.findMany({
     where: { householdId: currentUser.householdId },
-    include: { assignments: { orderBy: { dueDate: 'desc' }, take: 1 } },
+    include: { assignments: { where: { status: 'overdue' } } },
   });
-  const householdOverdueCount = chores.filter((c) => c.assignments[0]?.status === 'overdue').length;
+  const householdOverdueCount = chores.filter((c) => c.assignments.length > 0).length;
 
   res.json({ completedThisWeek, householdOverdueCount });
 });
@@ -600,17 +630,35 @@ app.get('/chores', requireAuth, async (req, res) => {
 
   const chores = await prisma.chore.findMany({ where: { householdId: currentUser.householdId } });
 
-  // Catch up any chores whose assignments have gone overdue before returning them.
   for (const chore of chores) {
     await ensureAssignmentsUpToDate(chore);
+    await sendOverdueReminders(chore);
   }
 
-  const updatedChores = await prisma.chore.findMany({
+  const choresWithOverdue = await prisma.chore.findMany({
     where: { householdId: currentUser.householdId },
     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     include: {
-      assignments: { orderBy: { dueDate: 'desc' }, take: 1, include: { user: true } },
+      assignments: {
+        where: { status: 'overdue' },
+        orderBy: { dueDate: 'desc' },
+        include: { user: true },
+      },
     },
+  });
+
+  const currentAssignments = await prisma.assignment.findMany({
+    where: { chore: { householdId: currentUser.householdId }, status: { not: 'overdue' } },
+    orderBy: { dueDate: 'desc' },
+    distinct: ['choreId'],
+    include: { user: true },
+  });
+  const currentByChoreId = Object.fromEntries(currentAssignments.map((a) => [a.choreId, a]));
+
+  const updatedChores = choresWithOverdue.map((chore) => {
+    const current = currentByChoreId[chore.id];
+    const assignments = current ? [current, ...chore.assignments] : [...chore.assignments];
+    return { ...chore, assignments };
   });
 
   res.json({ chores: updatedChores });
