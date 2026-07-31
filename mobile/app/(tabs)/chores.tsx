@@ -58,8 +58,11 @@ type Chore = {
 type Member = { id: string; name: string; avatarEmoji: string };
 type PersonRow = { userId: string; name: string; avatarEmoji: string; items: { chore: Chore; assignment: Assignment }[] };
 
-function groupByPerson(chores: Chore[]): PersonRow[] {
+function groupByPerson(chores: Chore[], members: Member[]): PersonRow[] {
   const map: Record<string, PersonRow> = {};
+  for (const member of members) {
+    map[member.id] = { userId: member.id, name: member.name, avatarEmoji: member.avatarEmoji, items: [] };
+  }
   for (const chore of chores) {
     for (const assignment of chore.assignments) {
       if (!assignment.user) continue;
@@ -256,7 +259,7 @@ export default function ChoresScreen() {
     }
   }
 
-  const people = groupByPerson(chores);
+  const people = groupByPerson(chores, members);
   people.sort((a, b) => {
     if (a.userId === user?.id) return -1;
     if (b.userId === user?.id) return 1;
@@ -290,7 +293,7 @@ export default function ChoresScreen() {
             </View>
 
             <Text style={styles.label}>CHORE NAME</Text>
-            <TextInput style={styles.input} placeholder="e.g. Scrub the sink..." placeholderTextColor="#999" value={name} onChangeText={setName} />
+            <TextInput style={styles.input} placeholder="e.g. take out trash ..." placeholderTextColor="#999" value={name} onChangeText={setName} />
 
             {choreType === 'recurring' ? (
               <>
@@ -367,7 +370,11 @@ export default function ChoresScreen() {
               <Text style={styles.personName}>{person.name}</Text>
               <Text style={styles.activeCount}>{person.items.filter((i) => i.assignment.status !== 'done').length} active</Text>
             </View>
-            {person.items.map(({ chore, assignment }) => {
+            {person.items.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No chores at the moment 🎉</Text>
+              </View>
+            ) : person.items.map(({ chore, assignment }) => {
               const isMine = assignment.userId === user?.id;
               const isOverdue = assignment.status === 'overdue';
               const isDone = assignment.status === 'done';
@@ -558,4 +565,6 @@ const styles = StyleSheet.create({
   iconButtonDanger: { backgroundColor: colors.terracottaTint },
   nudgeButton: { backgroundColor: colors.terracottaTint },
   nudgeText: { color: colors.terracotta, fontWeight: '700', fontSize: 13 },
+  emptyState: { paddingVertical: 20, alignItems: 'center' },
+  emptyStateText: { color: colors.ink, opacity: 0.5, fontSize: 14, fontStyle: 'italic' },
 });
