@@ -1,14 +1,16 @@
 import { useState } from 'react';
-import { View, TextInput, Button, Text, StyleSheet } from 'react-native';
+import { View, TextInput, Pressable, Text, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../utils/api';
+import { CozyButton } from '../components/CozyButton';
+import { colors, radius, shadow } from '../constants/colors';
 
 export default function HouseholdScreen() {
   const [name, setName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState('');
-  const { token, user } = useAuth();
+  const { token, user, refreshUser } = useAuth();
 
   async function handleCreate() {
     setError('');
@@ -17,6 +19,7 @@ export default function HouseholdScreen() {
         method: 'POST',
         body: JSON.stringify({ name }),
       }, token!);
+      await refreshUser();
       router.replace('/(tabs)');
     } catch (err: any) {
       setError(err.message);
@@ -30,6 +33,7 @@ export default function HouseholdScreen() {
         method: 'POST',
         body: JSON.stringify({ inviteCode }),
       }, token!);
+      await refreshUser();
       router.replace('/(tabs)');
     } catch (err: any) {
       setError(err.message);
@@ -38,27 +42,31 @@ export default function HouseholdScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome, {user?.name}!</Text>
+      <Text style={styles.title}>Welcome, {user?.name}! 👋</Text>
 
-      <Text style={styles.sectionTitle}>Create a household</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Household name"
-        placeholderTextColor="#999"
-        value={name}
-        onChangeText={setName}
-      />
-      <Button title="Create" onPress={handleCreate} />
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Create a household</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Household name"
+          placeholderTextColor="#999"
+          value={name}
+          onChangeText={setName}
+        />
+        <CozyButton title="Create" onPress={handleCreate} />
+      </View>
 
-      <Text style={styles.sectionTitle}>Or join one</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Invite code"
-        placeholderTextColor="#999"
-        value={inviteCode}
-        onChangeText={setInviteCode}
-      />
-      <Button title="Join" onPress={handleJoin} />
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Or join one</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Invite code"
+          placeholderTextColor="#999"
+          value={inviteCode}
+          onChangeText={setInviteCode}
+        />
+        <CozyButton title="Join" variant="secondary" onPress={handleJoin} />
+      </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
@@ -66,17 +74,18 @@ export default function HouseholdScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#fff' },
-  title: { fontSize: 20, fontWeight: 'bold', marginBottom: 24, textAlign: 'center', color: '#000' },
-  sectionTitle: { fontSize: 16, fontWeight: '600', marginTop: 24, marginBottom: 8, color: '#000' },
+  container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: colors.cream },
+  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 24, textAlign: 'center', color: colors.ink },
+  card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.mist, ...shadow },
+  sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12, color: colors.ink },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
+    borderColor: colors.mist,
+    borderRadius: radius.sm,
     padding: 12,
     marginBottom: 12,
-    color: '#000',
-    backgroundColor: '#fff',
+    color: colors.ink,
+    backgroundColor: colors.cream,
   },
-  error: { color: 'red', marginTop: 12, textAlign: 'center' },
+  error: { color: '#B5544A', marginTop: 12, textAlign: 'center' },
 });

@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.chelsearwang.householdplatform"
+      "bundleIdentifier": "com.chelsearwang.householdplatform",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.chelsearwang.householdplatform",
@@ -39,6 +42,12 @@
           "dark": {
             "backgroundColor": "#000000"
           }
+        }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.400883289925-f6b3mgu4q7a3che8ar64p5t0rivmhp6c"
         }
       ]
     ],

@@ -7,12 +7,21 @@ import { colors, radius } from '../constants/colors';
 export default function LoginScreen() {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
 
   async function handleLogin() {
     setError('');
     try {
       await login(name);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }
+
+  async function handleGoogleLogin() {
+    setError('');
+    try {
+      await loginWithGoogle();
     } catch (err: any) {
       setError(err.message);
     }
@@ -29,6 +38,7 @@ export default function LoginScreen() {
         onChangeText={setName}
       />
       <CozyButton title="Log in" onPress={handleLogin} />
+      <CozyButton title="Sign in with Google" variant="secondary" onPress={handleGoogleLogin} />
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
   );

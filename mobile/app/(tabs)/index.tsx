@@ -9,10 +9,11 @@ import { apiRequest } from '@/utils/api';
 import { GamificationBar } from '@/components/GamificationBar';
 import { formatRelativeTime } from '@/utils/time';
 import { colors, radius, shadow } from '@/constants/colors';
+//import * as Clipboard from 'expo-clipboard';
 
 type Announcement = { id: string; content: string; pinned: boolean; resolved: boolean; createdAt: string; author?: { name: string } };
 type Chore = { id: string; assignments: { userId: string; status: string }[] };
-type MeData = { xp: number; avatarLevel: number; name: string; household?: { streakCount: number; name: string } };
+type MeData = { xp: number; avatarLevel: number; name: string; household?: { streakCount: number; name: string; inviteCode: string } };
 type Stats = { completedThisWeek: number; householdOverdueCount: number };
 type Transaction = { from: string; to: string; amount: number };
 type NotificationItem = { id: string; content: string };
@@ -27,6 +28,7 @@ export default function DashboardScreen() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -72,6 +74,19 @@ export default function DashboardScreen() {
       setError(err.message);
     }
   }
+  
+  /*
+  async function copyInviteCode() {
+    if (!meData?.household?.inviteCode) return;
+    await Clipboard.setStringAsync(meData.household.inviteCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+  */
+  function copyInviteCode() {
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + 40 }]}>
@@ -84,6 +99,13 @@ export default function DashboardScreen() {
           <Ionicons name="settings-outline" size={26} color={colors.ink} />
         </Pressable>
       </View>
+
+      {meData?.household?.inviteCode && (
+        <Pressable onPress={copyInviteCode} style={styles.inviteCodePill}>
+          <Text style={styles.inviteCodePillText}>Invite code: {meData.household.inviteCode}</Text>
+          <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={14} color={colors.ink} style={{ opacity: 0.6 }} />
+        </Pressable>
+      )}
 
       {meData && (
         <GamificationBar
@@ -223,4 +245,6 @@ const styles = StyleSheet.create({
   navLabelLight: { fontSize: 16, fontWeight: '700', color: '#fff', marginTop: 8 },
   navSubtitle: { fontSize: 12, color: '#fff', opacity: 0.9, marginTop: 4 },
   error: { color: '#B5544A', marginBottom: 12, textAlign: 'center' },
+  inviteCodePill: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', backgroundColor: colors.mist, borderRadius: radius.md, paddingVertical: 6, paddingHorizontal: 12, marginBottom: 16 },
+  inviteCodePillText: { fontSize: 12, color: colors.ink, fontWeight: '600' },
 });

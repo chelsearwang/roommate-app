@@ -2,6 +2,13 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiRequest } from '../utils/api';
 
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+
+GoogleSignin.configure({
+  webClientId: '400883289925-r5bkta8ed5ad48jbuu347u2i33urrhp0.apps.googleusercontent.com',
+  iosClientId: '400883289925-f6b3mgu4q7a3che8ar64p5t0rivmhp6c.apps.googleusercontent.com',
+});
+
 type User = {
   id: string;
   name: string;
@@ -17,6 +24,7 @@ type AuthContextType = {
   login: (name: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -53,6 +61,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
   }
 
+  async function loginWithGoogle() {
+    await GoogleSignin.hasPlayServices();
+    const response = await GoogleSignin.signIn();
+    const idToken = response.data?.idToken;
+    if (!idToken) {
+      throw new Error('No ID token returned from Google');
+    }
+
+    const data = await apiRequest('/auth/google/mobile', {
+      method: 'POST',
+      body: JSON.stringify({ idToken }),
+    });
+    await AsyncStorage.setItem('token', data.token);
+    await AsyncStorage.setItem('user', JSON.stringify(data.user));
+    setToken(data.token);
+    setUser(data.user);
+  }
+
   async function logout() {
     await AsyncStorage.removeItem('token');
     await AsyncStorage.removeItem('user');
@@ -68,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
   return (
-    <AuthContext.Provider value={{ token, user, isLoading, login, logout, refreshUser }}>
+    <AuthContext.Provider value={{ token, user, isLoading, login, logout, refreshUser, loginWithGoogle }}>
       {children}
     </AuthContext.Provider>
   );

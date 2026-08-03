@@ -8,6 +8,7 @@ import { CozyButton } from '@/components/CozyButton';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { AVATAR_OPTIONS } from '@/constants/avatars';
 import { colors, radius, shadow } from '@/constants/colors';
+//import * as Clipboard from 'expo-clipboard';
 
 type Member = { id: string; name: string; avatarEmoji: string };
 
@@ -18,6 +19,8 @@ export default function SettingsScreen() {
   const [avatarEmoji, setAvatarEmoji] = useState('🐰');
   const [editingName, setEditingName] = useState(false);
   const [error, setError] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
+  const [copied, setCopied] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -27,6 +30,7 @@ export default function SettingsScreen() {
       ]);
       setMembers(membersData.members);
       setHouseholdName(meData.user.household?.name ?? '');
+      setInviteCode(meData.user.household?.inviteCode ?? '');
       setAvatarEmoji(meData.user.avatarEmoji);
     } catch (err: any) {
       setError(err.message);
@@ -43,6 +47,19 @@ export default function SettingsScreen() {
     } catch (err: any) {
       setError(err.message);
     }
+  }
+  
+  /*
+  async function copyInviteCode() {
+    await Clipboard.setStringAsync(inviteCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+    */
+  
+  function copyInviteCode() {
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   async function selectAvatar(emoji: string) {
@@ -120,6 +137,16 @@ export default function SettingsScreen() {
           </View>
         )}
       </View>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Invite code</Text>
+        <View style={styles.inviteRow}>
+          <Text style={styles.inviteCode}>{inviteCode}</Text>
+          <Pressable onPress={copyInviteCode} style={styles.iconButton}>
+            <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={16} color={colors.sage} />
+          </Pressable>
+        </View>
+        {copied ? <Text style={styles.copiedText}>Copied!</Text> : null}
+      </View>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Members</Text>
@@ -161,4 +188,7 @@ const styles = StyleSheet.create({
   error: { color: '#B5544A', marginBottom: 12, textAlign: 'center' },
   saveEditButton: { backgroundColor: colors.sageTint, borderRadius: radius.md, paddingVertical: 10, paddingHorizontal: 20 },
   saveEditText: { color: colors.sage, fontWeight: '700', fontSize: 14 },
+  inviteRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  inviteCode: { fontSize: 18, fontWeight: '700', color: colors.ink, letterSpacing: 1 },
+  copiedText: { fontSize: 12, color: colors.sage, marginTop: 8, fontWeight: '600' },
 });

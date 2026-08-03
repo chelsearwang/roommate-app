@@ -4,6 +4,8 @@ const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 const { PrismaPg } = require('@prisma/adapter-pg');
 const cors = require('cors');
+const { OAuth2Client } = require('google-auth-library');
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // ============================================================
 // SETUP — Express app + Prisma client (with Prisma 7 driver adapter)
@@ -47,6 +49,42 @@ app.post('/auth/dev-login', async (req, res) => {
   );
 
   res.json({ token, user });
+});
+
+app.post('/auth/google/mobile', async (req, res) => {
+  const { idToken } = req.body;
+  if (!idToken) {
+    return res.status(400).json({ error: 'idToken is required' });
+  }
+
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+
+    let user = await prisma.user.findFirst({ where: { googleId: payload.sub } });
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          googleId: payload.sub,
+          email: payload.email,
+          name: payload.name || payload.email.split('@')[0],
+        },
+      });
+    }
+
+    const token = jwt.sign(
+      { userId: user.id, householdId: user.householdId },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({ token, user });
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid Google ID token' });
+  }
 });
 
 // ============================================================
