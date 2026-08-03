@@ -8,7 +8,8 @@ import { CozyButton } from '@/components/CozyButton';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { AVATAR_OPTIONS } from '@/constants/avatars';
 import { colors, radius, shadow } from '@/constants/colors';
-//import * as Clipboard from 'expo-clipboard';
+import * as Clipboard from 'expo-clipboard';
+import { Share } from 'react-native';
 
 type Member = { id: string; name: string; avatarEmoji: string };
 
@@ -57,9 +58,18 @@ export default function SettingsScreen() {
   }
     */
   
-  function copyInviteCode() {
+  async function copyInviteCode() {
+    await Clipboard.setStringAsync(inviteCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function shareInviteCode() {
+    try {
+      await Share.share({ message: `Join my household on Household Platform! Invite code: ${inviteCode}` });
+    } catch {
+      // cancelled or failed silently — nothing to surface
+    }
   }
 
   async function selectAvatar(emoji: string) {
@@ -143,6 +153,9 @@ export default function SettingsScreen() {
           <Text style={styles.inviteCode}>{inviteCode}</Text>
           <Pressable onPress={copyInviteCode} style={styles.iconButton}>
             <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={16} color={colors.sage} />
+          </Pressable>
+          <Pressable onPress={shareInviteCode} style={styles.iconButton}>
+            <Ionicons name="share-outline" size={16} color={colors.sage} />
           </Pressable>
         </View>
         {copied ? <Text style={styles.copiedText}>Copied!</Text> : null}

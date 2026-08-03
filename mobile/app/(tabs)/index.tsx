@@ -9,7 +9,8 @@ import { apiRequest } from '@/utils/api';
 import { GamificationBar } from '@/components/GamificationBar';
 import { formatRelativeTime } from '@/utils/time';
 import { colors, radius, shadow } from '@/constants/colors';
-//import * as Clipboard from 'expo-clipboard';
+import * as Clipboard from 'expo-clipboard';
+import { Share } from 'react-native';
 
 type Announcement = { id: string; content: string; pinned: boolean; resolved: boolean; createdAt: string; author?: { name: string } };
 type Chore = { id: string; assignments: { userId: string; status: string }[] };
@@ -83,9 +84,18 @@ export default function DashboardScreen() {
     setTimeout(() => setCopied(false), 2000);
   }
   */
-  function copyInviteCode() {
+  async function copyInviteCode() {
+    await Clipboard.setStringAsync(meData!.household!.inviteCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function shareInviteCode() {
+    try {
+      await Share.share({ message: `Join my household on Household Platform! Invite code: ${meData?.household?.inviteCode}` });
+    } catch {
+      // cancelled or failed silently — nothing to surface
+    }
   }
 
   return (
@@ -101,10 +111,15 @@ export default function DashboardScreen() {
       </View>
 
       {meData?.household?.inviteCode && (
-        <Pressable onPress={copyInviteCode} style={styles.inviteCodePill}>
-          <Text style={styles.inviteCodePillText}>Invite code: {meData.household.inviteCode}</Text>
-          <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={14} color={colors.ink} style={{ opacity: 0.6 }} />
-        </Pressable>
+        <View style={styles.inviteCodeRow}>
+          <Pressable onPress={copyInviteCode} style={styles.inviteCodePill}>
+            <Text style={styles.inviteCodePillText}>Invite code: {meData.household.inviteCode}</Text>
+            <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={14} color={colors.ink} style={{ opacity: 0.6 }} />
+          </Pressable>
+          <Pressable onPress={shareInviteCode} style={styles.iconButton}>
+            <Ionicons name="share-outline" size={16} color={colors.sage} />
+          </Pressable>
+        </View>
       )}
 
       {meData && (
@@ -245,6 +260,8 @@ const styles = StyleSheet.create({
   navLabelLight: { fontSize: 16, fontWeight: '700', color: '#fff', marginTop: 8 },
   navSubtitle: { fontSize: 12, color: '#fff', opacity: 0.9, marginTop: 4 },
   error: { color: '#B5544A', marginBottom: 12, textAlign: 'center' },
-  inviteCodePill: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', backgroundColor: colors.mist, borderRadius: radius.md, paddingVertical: 6, paddingHorizontal: 12, marginBottom: 16 },
+  inviteCodePill: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', backgroundColor: colors.mist, borderRadius: radius.md, paddingVertical: 6, paddingHorizontal: 12},
   inviteCodePillText: { fontSize: 12, color: colors.ink, fontWeight: '600' },
+  inviteCodeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
+  iconButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.sageTint, alignItems: 'center', justifyContent: 'center' },
 });
