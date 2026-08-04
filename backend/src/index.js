@@ -384,35 +384,34 @@ app.patch('/me/avatar', requireAuth, async (req, res) => {
 // ============================================================
 app.post('/households/create', requireAuth, async (req, res) => {
   const { name } = req.body;
-  if (!name) {
-    return res.status(400).json({ error: 'name is required' });
-  }
+  if (!name) return res.status(400).json({ error: 'name is required' });
 
-  const household = await prisma.household.create({ data: { name } });
-
-  const user = await prisma.user.update({
-    where: { id: req.userId },
-    data: { householdId: household.id },
-  });
+  const inviteCode = await generateUniqueInviteCode();
+  const household = await prisma.household.create({ data: { name, inviteCode } });
+  const user = await prisma.user.update({ where: { id: req.userId }, data: { householdId: household.id } });
 
   res.json({ household, user });
 });
 
 app.post('/households/join', requireAuth, async (req, res) => {
   const { inviteCode } = req.body;
-  if (!inviteCode) {
-    return res.status(400).json({ error: 'inviteCode is required' });
-  }
+  if (!inviteCode) return res.status(400).json({ error: 'inviteCode is required' });
 
   const household = await prisma.household.findUnique({ where: { inviteCode } });
-  if (!household) {
-    return res.status(404).json({ error: 'Household not found' });
-  }
+  if (!household) return res.status(404).json({ error: 'Household not found' });
 
-  const user = await prisma.user.update({
-    where: { id: req.userId },
-    data: { householdId: household.id },
+  const joiningUser = await prisma.user.findUnique({ where: { id: req.userId } });
+  const user = await prisma.user.update({ where: { id: req.userId }, data: { householdId: household.id } });
+
+  const existingMembers = await prisma.user.findMany({
+    where: { householdId: household.id, id: { not: req.userId } },
   });
+
+  await Promise.all(existingMembers.map((member) =>
+    prisma.notification.create({
+      data: { userId: member.id, type: 'member_joined', content: `${joiningUser.name} joined the household! 👋` },
+    })
+  ));
 
   res.json({ household, user });
 });
@@ -488,6 +487,22 @@ app.post('/households/leave', requireAuth, async (req, res) => {
 
   res.json({ user });
 });
+
+function generateInviteCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous 0/O, 1/I/L
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+async function generateUniqueInviteCode() {
+  let code;
+  while (true) {
+    code = generateInviteCode();
+    const existing = await prisma.household.findUnique({ where: { inviteCode: code } });
+    if (!existing) return code;
+  }
+}
 
 // ============================================================
 // ROUTES — announcements (create, list, resolve)
@@ -949,6 +964,25 @@ app.patch('/expenses/:id', requireAuth, async (req, res) => {
   res.json({ expense: updated });
 });
 
+app.delete('/expenses/:id', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+  const expense = await prisma.expense.findUnique({ where: { id } });
+
+  if (!expense) {
+    return res.status(404).json({ error: 'Expense not found' });
+  }
+  if (expense.householdId !== currentUser.householdId) {
+    return res.status(403).json({ error: 'This expense is not in your household' });
+  }
+
+  await prisma.$transaction([
+    prisma.expenseShare.deleteMany({ where: { expenseId: id } }),
+    prisma.expense.delete({ where: { id } }),
+  ]);
+
+  res.json({ deleted: true });
+});
 // ============================================================
 // NUDGING
 // ============================================================

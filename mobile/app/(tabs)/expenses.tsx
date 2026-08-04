@@ -96,6 +96,26 @@ export default function ExpensesScreen() {
     setEditAmount('');
   }
 
+  function handleDeleteExpense(id: string, description: string) {
+    const performDelete = async () => {
+      try {
+        await apiRequest(`/expenses/${id}`, { method: 'DELETE' }, token!);
+        loadData();
+      } catch (err: any) {
+        setError(err.message);
+      }
+    };
+    const message = `Delete "${description}"? This can't be undone.`;
+    if (Platform.OS === 'web') {
+      if (window.confirm(message)) performDelete();
+    } else {
+      Alert.alert('Delete expense?', message, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: performDelete },
+      ]);
+    }
+  }
+
   async function saveEditExpense(id: string) {
     const parsedAmount = parseFloat(editAmount);
     try {

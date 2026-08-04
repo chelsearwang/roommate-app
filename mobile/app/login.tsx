@@ -3,11 +3,13 @@ import { View, TextInput, Text, StyleSheet } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { CozyButton } from '../components/CozyButton';
 import { colors, radius } from '../constants/colors';
+import { Platform } from 'react-native';
+import { GoogleWebSignInButton } from '@/components/GoogleWebSignInButton';
 
 export default function LoginScreen() {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
-  const { login, loginWithGoogle } = useAuth();
+  const { login, loginWithGoogle, loginWithGoogleIdToken } = useAuth();
 
   async function handleLogin() {
     setError('');
@@ -38,7 +40,16 @@ export default function LoginScreen() {
         onChangeText={setName}
       />
       <CozyButton title="Log in" onPress={handleLogin} />
-      <CozyButton title="Sign in with Google" variant="secondary" onPress={handleGoogleLogin} />
+      {Platform.OS === 'web' ? (
+        <GoogleWebSignInButton
+          onIdToken={async (idToken) => {
+            try { await loginWithGoogleIdToken(idToken); } catch (err: any) { setError(err.message); }
+          }}
+          onError={setError}
+        />
+      ) : (
+        <CozyButton title="Sign in with Google" variant="secondary" onPress={handleGoogleLogin} />
+      )}
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
   );

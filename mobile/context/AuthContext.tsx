@@ -1,13 +1,16 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiRequest } from '../utils/api';
+import { Platform } from 'react-native';
 
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
-GoogleSignin.configure({
-  webClientId: '400883289925-r5bkta8ed5ad48jbuu347u2i33urrhp0.apps.googleusercontent.com',
-  iosClientId: '400883289925-f6b3mgu4q7a3che8ar64p5t0rivmhp6c.apps.googleusercontent.com',
-});
+if (Platform.OS !== 'web') {
+  GoogleSignin.configure({
+    webClientId: '400883289925-r5bkta8ed5ad48jbuu347u2i33urrhp0.apps.googleusercontent.com',
+    iosClientId: '400883289925-f6b3mgu4q7a3che8ar64p5t0rivmhp6c.apps.googleusercontent.com',
+  });
+}
 
 type User = {
   id: string;
@@ -25,6 +28,7 @@ type AuthContextType = {
   logout: () => void;
   refreshUser: () => Promise<void>;
   loginWithGoogle: () => Promise<void>;
+  loginWithGoogleIdToken: (idToken: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -61,14 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
   }
 
-  async function loginWithGoogle() {
-    await GoogleSignin.hasPlayServices();
-    const response = await GoogleSignin.signIn();
-    const idToken = response.data?.idToken;
-    if (!idToken) {
-      throw new Error('No ID token returned from Google');
-    }
-
+  async function loginWithGoogleIdToken(idToken: string) {
     const data = await apiRequest('/auth/google/mobile', {
       method: 'POST',
       body: JSON.stringify({ idToken }),
@@ -77,6 +74,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await AsyncStorage.setItem('user', JSON.stringify(data.user));
     setToken(data.token);
     setUser(data.user);
+  }
+
+  async function loginWithGoogle() {
+    await GoogleSignin.hasPlayServices();
+    const response = await GoogleSignin.signIn();
+    const idToken = response.data?.idToken;
+    if (!idToken) throw new Error('No ID token returned from Google');
+    await loginWithGoogleIdToken(idToken);
   }
 
   async function logout() {
@@ -94,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
   return (
-    <AuthContext.Provider value={{ token, user, isLoading, login, logout, refreshUser, loginWithGoogle }}>
+    <AuthContext.Provider value={{ token, user, isLoading, login, logout, refreshUser, loginWithGoogle, loginWithGoogleIdToken }}>
       {children}
     </AuthContext.Provider>
   );

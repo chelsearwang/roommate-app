@@ -14,7 +14,7 @@ datasource db {
 model Household {
   id            String   @id @default(uuid())
   name          String
-  inviteCode    String   @unique @default(cuid())
+  inviteCode    String   @unique
   streakCount   Int      @default(0)
   users         User[]
   chores        Chore[]
