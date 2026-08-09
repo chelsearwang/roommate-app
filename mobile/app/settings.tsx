@@ -150,7 +150,7 @@ export default function SettingsScreen() {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Invite code</Text>
         <View style={styles.inviteRow}>
-          <Text style={styles.inviteCode}>{inviteCode}</Text>
+          <Text style={styles.inviteCode} numberOfLines={1} adjustsFontSizeToFit>{inviteCode}</Text>
           <Pressable onPress={copyInviteCode} style={styles.iconButton}>
             <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={16} color={colors.sage} />
           </Pressable>
@@ -194,14 +194,14 @@ const styles = StyleSheet.create({
   editRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   cancelButton: { paddingVertical: 8 },
   cancelText: { color: colors.ink, opacity: 0.6 },
-  iconButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.sageTint, alignItems: 'center', justifyContent: 'center' },
+  iconButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.sageTint, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   memberRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.mist },
   memberAvatar: { fontSize: 18 },
   memberName: { fontSize: 15, color: colors.ink },
   error: { color: '#B5544A', marginBottom: 12, textAlign: 'center' },
   saveEditButton: { backgroundColor: colors.sageTint, borderRadius: radius.md, paddingVertical: 10, paddingHorizontal: 20 },
   saveEditText: { color: colors.sage, fontWeight: '700', fontSize: 14 },
-  inviteRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  inviteCode: { fontSize: 18, fontWeight: '700', color: colors.ink, letterSpacing: 1 },
+  inviteRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  inviteCode: { flex: 1, fontSize: 18, fontWeight: '700', color: colors.ink, letterSpacing: 1 },
   copiedText: { fontSize: 12, color: colors.sage, marginTop: 8, fontWeight: '600' },
 });

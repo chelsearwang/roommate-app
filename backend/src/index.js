@@ -1,4 +1,9 @@
 require('dotenv').config();
+
+const { getNthWeekdayOfMonth, endOfDay, parseLocalDate, getNextMonthlyDueDate, getFirstMonthlyDueDate, getOccurrenceOfWeekday, getNextWeekdayOnOrAfter } = require('./lib/dates');
+const { calculateAvatarLevel } = require('./lib/gamification');
+const { simplifyDebts } = require('./lib/settleUp');
+
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
@@ -114,8 +119,9 @@ function requireAuth(req, res, next) {
 const FREQUENCY_DAYS = { daily: 1, weekly: 7, biweekly: 14, monthly: 30 };
 const XP_PER_WEIGHT = 10;
 
-const OCCURRENCE_INDEX = { first: 0, second: 1, third: 2, fourth: 3 };
+// const OCCURRENCE_INDEX = { first: 0, second: 1, third: 2, fourth: 3 };
 
+/*
 function getNthWeekdayOfMonth(year, month, weekday, occurrence) {
   if (occurrence === 'last') {
     const lastDayOfMonth = new Date(year, month + 1, 0);
@@ -128,6 +134,7 @@ function getNthWeekdayOfMonth(year, month, weekday, occurrence) {
   const day = 1 + offset + OCCURRENCE_INDEX[occurrence] * 7;
   return new Date(year, month, day);
 }
+  
 
 function endOfDay(date) {
   const d = new Date(date);
@@ -174,6 +181,7 @@ function getNextWeekdayOnOrAfter(startDate, weekday) {
 function calculateAvatarLevel(xp) {
   return Math.floor(Math.sqrt(xp / 50)) + 1;
 }
+*/
 
 // db is passed in explicitly (not just using the global `prisma`) so this
 // same function works both standalone and inside a $transaction.
@@ -853,30 +861,7 @@ app.get('/households/settle-up', requireAuth, async (req, res) => {
   });
 
   // net each person's overall balance across all unsettled shares
-  const balances = {};
-  for (const share of shares) {
-    const oweUserId = share.userId;
-    const owedUserId = share.expense.payerId;
-    balances[oweUserId] = (balances[oweUserId] || 0) - Number(share.amount);
-    balances[owedUserId] = (balances[owedUserId] || 0) + Number(share.amount);
-  }
-
-  // split into debtors (owe money) and creditors (are owed money)
-  const debtors = Object.entries(balances).filter(([_, bal]) => bal < 0).map(([id, bal]) => ({ id, bal: -bal }));
-  const creditors = Object.entries(balances).filter(([_, bal]) => bal > 0).map(([id, bal]) => ({ id, bal }));
-
-  // match debtors with creditors, minimizing transaction count
-  const transactions = [];
-  let i = 0, j = 0;
-  while (i < debtors.length && j < creditors.length) {
-    const amount = Math.min(debtors[i].bal, creditors[j].bal);
-    transactions.push({ from: debtors[i].id, to: creditors[j].id, amount });
-
-    debtors[i].bal -= amount;
-    creditors[j].bal -= amount;
-    if (debtors[i].bal === 0) i++;
-    if (creditors[j].bal === 0) j++;
-  }
+  const transactions = simplifyDebts(shares);
 
   const userIds = [...new Set(transactions.flatMap((t) => [t.from, t.to]))];
   const users = await prisma.user.findMany({ where: { id: { in: userIds } } });

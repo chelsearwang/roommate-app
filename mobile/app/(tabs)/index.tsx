@@ -111,10 +111,13 @@ export default function DashboardScreen() {
       </View>
 
       {meData?.household?.inviteCode && (
-        <View style={styles.inviteCodeRow}>
-          <Pressable onPress={copyInviteCode} style={styles.inviteCodePill}>
-            <Text style={styles.inviteCodePillText}>Invite code: {meData.household.inviteCode}</Text>
-            <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={14} color={colors.ink} style={{ opacity: 0.6 }} />
+        <View style={styles.inviteCodeCard}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.inviteCodeLabel}>INVITE CODE</Text>
+            <Text style={styles.inviteCodeValue} numberOfLines={1} adjustsFontSizeToFit>{meData.household.inviteCode}</Text>
+          </View>
+          <Pressable onPress={copyInviteCode} style={styles.iconButton}>
+            <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={16} color={colors.sage} />
           </Pressable>
           <Pressable onPress={shareInviteCode} style={styles.iconButton}>
             <Ionicons name="share-outline" size={16} color={colors.sage} />
@@ -260,8 +263,8 @@ const styles = StyleSheet.create({
   navLabelLight: { fontSize: 16, fontWeight: '700', color: '#fff', marginTop: 8 },
   navSubtitle: { fontSize: 12, color: '#fff', opacity: 0.9, marginTop: 4 },
   error: { color: '#B5544A', marginBottom: 12, textAlign: 'center' },
-  inviteCodePill: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', backgroundColor: colors.mist, borderRadius: radius.md, paddingVertical: 6, paddingHorizontal: 12},
-  inviteCodePillText: { fontSize: 12, color: colors.ink, fontWeight: '600' },
-  inviteCodeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
-  iconButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.sageTint, alignItems: 'center', justifyContent: 'center' },
+  inviteCodeCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surface, borderRadius: radius.lg, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: colors.mist, ...shadow },
+  inviteCodeLabel: { fontSize: 11, fontWeight: '700', color: colors.ink, opacity: 0.5, letterSpacing: 0.5, marginBottom: 2 },
+  inviteCodeValue: { fontSize: 16, fontWeight: '700', color: colors.ink, letterSpacing: 1 },
+  iconButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.sageTint, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
 });
