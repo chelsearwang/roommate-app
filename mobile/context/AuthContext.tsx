@@ -33,13 +33,31 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+let pendingGoogleIdToken: string | null = null;
+if (typeof window !== 'undefined' && window.location.hash.includes('id_token=')) {
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  pendingGoogleIdToken = params.get('id_token');
+  window.history.replaceState(null, '', window.location.pathname);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    async function loadStoredAuth() {
+    async function initialize() {
+      if (pendingGoogleIdToken) {
+        const tokenToUse = pendingGoogleIdToken;
+        pendingGoogleIdToken = null;
+        try {
+          await loginWithGoogleIdToken(tokenToUse);
+        } catch (err) {
+          console.error('Google sign-in failed:', err);
+        }
+        setIsLoading(false);
+        return;
+      }
       try {
         const storedToken = await AsyncStorage.getItem('token');
         const storedUser = await AsyncStorage.getItem('user');
@@ -51,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
       }
     }
-    loadStoredAuth();
+    initialize();
   }, []);
 
   async function login(name: string) {

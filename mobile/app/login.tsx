@@ -41,12 +41,15 @@ export default function LoginScreen() {
       />
       <CozyButton title="Log in" onPress={handleLogin} />
       {Platform.OS === 'web' ? (
+        /*
         <GoogleWebSignInButton
           onIdToken={async (idToken) => {
             try { await loginWithGoogleIdToken(idToken); } catch (err: any) { setError(err.message); }
           }}
           onError={setError}
         />
+        */
+       <GoogleWebSignInButton onError={setError} />
       ) : (
         <CozyButton title="Sign in with Google" variant="secondary" onPress={handleGoogleLogin} />
       )}
