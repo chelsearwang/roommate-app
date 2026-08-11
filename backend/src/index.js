@@ -393,11 +393,9 @@ app.get('/households/stats', requireAuth, async (req, res) => {
     },
   });
 
-  const chores = await prisma.chore.findMany({
-    where: { householdId: currentUser.householdId },
-    include: { assignments: { where: { status: 'overdue' } } },
+  const householdOverdueCount = await prisma.assignment.count({
+    where: { status: 'overdue', chore: { householdId: currentUser.householdId } },
   });
-  const householdOverdueCount = chores.filter((c) => c.assignments.length > 0).length;
 
   res.json({ completedThisWeek, householdOverdueCount });
 });

@@ -109,6 +109,26 @@ export default function AnnouncementsScreen() {
     }
   }
 
+  function handleDeleteAllResolved() {
+    const performDelete = async () => {
+      try {
+        await Promise.all(resolved.map((a) => apiRequest(`/announcements/${a.id}`, { method: 'DELETE' }, token!)));
+        loadAnnouncements();
+      } catch (err: any) {
+        setError(err.message);
+      }
+    };
+    const message = `Delete all ${resolved.length} resolved announcements? This can't be undone.`;
+    if (Platform.OS === 'web') {
+      if (window.confirm(message)) performDelete();
+    } else {
+      Alert.alert('Delete all resolved?', message, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete All', style: 'destructive', onPress: performDelete },
+      ]);
+    }
+  }
+
   const active = announcements.filter((a) => !a.resolved);
   const resolved = announcements.filter((a) => a.resolved);
 
@@ -207,11 +227,16 @@ export default function AnnouncementsScreen() {
 
       {resolved.length > 0 && (
         <>
-          <Pressable onPress={() => setShowResolved(!showResolved)} style={styles.resolvedHeader}>
-            <Text style={styles.resolvedHeaderText}>
-              {showResolved ? '▾' : '▸'} Resolved ({resolved.length})
-            </Text>
-          </Pressable>
+          <View style={styles.resolvedHeaderRow}>
+            <Pressable onPress={() => setShowResolved(!showResolved)} style={styles.resolvedHeader}>
+              <Text style={styles.resolvedHeaderText}>
+                {showResolved ? '▾' : '▸'} Resolved ({resolved.length})
+              </Text>
+            </Pressable>
+            <Pressable onPress={handleDeleteAllResolved} style={styles.deleteAllButton}>
+              <Text style={styles.deleteAllText}>Delete all</Text>
+            </Pressable>
+          </View>
           {showResolved && resolved.map((a) => renderCard(a, true))}
         </>
       )}
@@ -248,5 +273,8 @@ const styles = StyleSheet.create({
   iconButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.terracottaTint, alignItems: 'center', justifyContent: 'center' },
   resolvedHeader: { paddingVertical: 12 },
   resolvedHeaderText: { color: colors.ink, opacity: 0.7, fontSize: 14, fontWeight: '600' },
+  resolvedHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  deleteAllButton: { paddingVertical: 8 },
+  deleteAllText: { color: colors.terracotta, fontSize: 13, fontWeight: '600' },
   error: { color: '#B5544A', marginBottom: 12, textAlign: 'center' },
 });
