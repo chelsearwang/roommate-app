@@ -219,6 +219,9 @@ export default function ExpensesScreen() {
                 <Pressable onPress={() => startEditExpense(e)} style={styles.iconButton}>
                   <Ionicons name="create-outline" size={15} color={colors.sage} />
                 </Pressable>
+                <Pressable onPress={() => handleDeleteExpense(e.id, e.description)} style={[styles.iconButton, styles.iconButtonDanger]}>
+                  <Ionicons name="trash-outline" size={15} color={colors.terracotta} />
+                </Pressable>
               </>
             )}
           </View>
@@ -244,6 +247,7 @@ const styles = StyleSheet.create({
   bold: { fontWeight: '700' },
   amount: { color: colors.terracotta, fontWeight: '700' },
   iconButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.sageTint, alignItems: 'center', justifyContent: 'center' },
+  iconButtonDanger: { backgroundColor: colors.terracottaTint },
   editActionRow: { flexDirection: 'row', gap: 8 },
   editSaveButton: { backgroundColor: colors.sageTint, borderRadius: radius.md, paddingVertical: 8, paddingHorizontal: 16, alignItems: 'center' },
   editSaveText: { color: colors.sage, fontWeight: '700', fontSize: 13 },
