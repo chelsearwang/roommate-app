@@ -53,6 +53,7 @@ model Chore {
   scheduleOccurrence String?  // "first"|"second"|"third"|"fourth"|"last" — only used when frequency is "monthly"
   createdAt          DateTime @default(now())
   assignments        Assignment[]
+  assignmentMode String @default("rotating")
 }
 
 model Assignment {

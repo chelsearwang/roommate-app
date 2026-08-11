@@ -119,72 +119,7 @@ function requireAuth(req, res, next) {
 const FREQUENCY_DAYS = { daily: 1, weekly: 7, biweekly: 14, monthly: 30 };
 const XP_PER_WEIGHT = 10;
 
-// const OCCURRENCE_INDEX = { first: 0, second: 1, third: 2, fourth: 3 };
-
-/*
-function getNthWeekdayOfMonth(year, month, weekday, occurrence) {
-  if (occurrence === 'last') {
-    const lastDayOfMonth = new Date(year, month + 1, 0);
-    const diff = (lastDayOfMonth.getDay() - weekday + 7) % 7;
-    lastDayOfMonth.setDate(lastDayOfMonth.getDate() - diff);
-    return lastDayOfMonth;
-  }
-  const firstOfMonth = new Date(year, month, 1);
-  const offset = (weekday - firstOfMonth.getDay() + 7) % 7;
-  const day = 1 + offset + OCCURRENCE_INDEX[occurrence] * 7;
-  return new Date(year, month, day);
-}
-  
-
-function endOfDay(date) {
-  const d = new Date(date);
-  d.setHours(23, 59, 59, 999);
-  return d;
-}
-
-function parseLocalDate(dateString) {
-  const [year, month, day] = dateString.split('-').map(Number);
-  return new Date(year, month - 1, day); // JS months are 0-indexed
-}
-
-function getNextMonthlyDueDate(currentDueDate, weekday, occurrence) {
-  const next = new Date(currentDueDate);
-  next.setMonth(next.getMonth() + 1);
-  return endOfDay(getNthWeekdayOfMonth(next.getFullYear(), next.getMonth(), weekday, occurrence));
-}
-
-function getFirstMonthlyDueDate(weekday, occurrence) {
-  const now = new Date();
-  const candidate = getNthWeekdayOfMonth(now.getFullYear(), now.getMonth(), weekday, occurrence);
-  if (candidate < now) {
-    return getNextMonthlyDueDate(candidate, weekday, occurrence);
-  }
-  return endOfDay(candidate);
-}
-
-function getOccurrenceOfWeekday(date) {
-  const day = date.getDate();
-  const weekday = date.getDay();
-  const occurrenceIndex = Math.floor((day - 1) / 7);
-  const OCCURRENCE_NAMES = ['first', 'second', 'third', 'fourth'];
-  const occurrence = occurrenceIndex < 4 ? OCCURRENCE_NAMES[occurrenceIndex] : 'last';
-  return { weekday, occurrence };
-}
-
-function getNextWeekdayOnOrAfter(startDate, weekday) {
-  const result = new Date(startDate);
-  const diff = (weekday - result.getDay() + 7) % 7;
-  result.setDate(result.getDate() + diff);
-  return result;
-}
-
-function calculateAvatarLevel(xp) {
-  return Math.floor(Math.sqrt(xp / 50)) + 1;
-}
-*/
-
-// db is passed in explicitly (not just using the global `prisma`) so this
-// same function works both standalone and inside a $transaction.
+// db passed in explicitly so this same func works both standalone and inside a $transaction
 async function getNextAssignee(db, choreId, householdId) {
   const users = await db.user.findMany({
     where: { householdId },
@@ -252,15 +187,21 @@ async function ensureAssignmentsUpToDate(chore) {
       });
     }
 
-    const assignee = await getNextAssignee(prisma, chore.id, chore.householdId);
-    await advanceRotation(prisma, chore.id);
+    let nextAssigneeId;
+    if (chore.assignmentMode === 'fixed') {
+      nextAssigneeId = latest.userId; // same person again — no rotation
+    } else {
+      const assignee = await getNextAssignee(prisma, chore.id, chore.householdId);
+      await advanceRotation(prisma, chore.id);
+      nextAssigneeId = assignee.id;
+    }
 
     const nextDueDate = chore.frequency === 'monthly'
       ? getNextMonthlyDueDate(latest.dueDate, chore.scheduleWeekday, chore.scheduleOccurrence)
       : endOfDay(new Date(latest.dueDate.getTime() + intervalMs));
 
     latest = await prisma.assignment.create({
-      data: { choreId: chore.id, userId: assignee.id, dueDate: nextDueDate },
+      data: { choreId: chore.id, userId: nextAssigneeId, dueDate: nextDueDate },
     });
   }
 }
@@ -297,7 +238,7 @@ async function sendOverdueReminders(chore) {
 
 app.patch('/chores/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
-  const { name, weight, frequency, scheduleWeekday, scheduleDate, dueDate, assigneeId } = req.body;
+  const { name, weight, frequency, scheduleWeekday, scheduleDate, dueDate, assigneeId, assignmentMode } = req.body;
 
   const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
   const chore = await prisma.chore.findUnique({ where: { id } });
@@ -314,8 +255,11 @@ app.patch('/chores/:id', requireAuth, async (req, res) => {
   if (weight !== undefined) data.weight = weight;
 
   let newPendingDueDate = null;
+  let finalAssignmentMode = chore.assignmentMode;
 
   if (chore.type === 'recurring') {
+    finalAssignmentMode = assignmentMode !== undefined ? assignmentMode : chore.assignmentMode;
+    if (assignmentMode !== undefined) data.assignmentMode = assignmentMode;
     const finalFrequency = frequency !== undefined ? frequency : chore.frequency;
     if (frequency !== undefined) data.frequency = frequency;
 
@@ -336,10 +280,9 @@ app.patch('/chores/:id', requireAuth, async (req, res) => {
 
   const updated = await prisma.chore.update({ where: { id }, data });
 
-  // Reflect the new pattern on the current cycle immediately — but only if
-  // nothing has happened to it yet. A done/overdue assignment is a resolved
-  // past event for this cycle and is left untouched; the new pattern applies
-  // starting next rotation in that case.
+  // Reflect the new pattern on the current cycle immediately
+  // A done/overdue assignment is a resolved past event for this cycle and is left untouched
+  // New pattern applies starting next rotation in that case
   if (newPendingDueDate) {
     const pendingAssignment = await prisma.assignment.findFirst({
       where: { choreId: id, status: 'pending' },
@@ -357,6 +300,16 @@ app.patch('/chores/:id', requireAuth, async (req, res) => {
       if (dueDate !== undefined) assignmentData.dueDate = endOfDay(parseLocalDate(dueDate));
       if (assigneeId !== undefined) assignmentData.userId = assigneeId;
       await prisma.assignment.update({ where: { id: assignment.id }, data: assignmentData });
+    }
+  }
+
+  if (chore.type === 'recurring' && finalAssignmentMode === 'fixed' && assigneeId !== undefined) {
+    const pendingAssignment = await prisma.assignment.findFirst({
+      where: { choreId: id, status: 'pending' },
+      orderBy: { dueDate: 'desc' },
+    });
+    if (pendingAssignment) {
+      await prisma.assignment.update({ where: { id: pendingAssignment.id }, data: { userId: assigneeId } });
     }
   }
 
@@ -612,7 +565,7 @@ app.delete('/announcements/:id', requireAuth, async (req, res) => {
 // ROUTES — chores (create + assign, list with auto catch-up)
 // ============================================================
 app.post('/chores', requireAuth, async (req, res) => {
-  const { name, type, frequency, weight, scheduleWeekday, scheduleDate, dueDate, assigneeId } = req.body;
+  const { name, type, frequency, weight, scheduleWeekday, scheduleDate, dueDate, assigneeId, assignmentMode } = req.body;
   const choreType = type || 'recurring';
 
   if (!name) {
@@ -650,6 +603,17 @@ app.post('/chores', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'frequency is required for recurring chores' });
   }
 
+  const finalAssignmentMode = assignmentMode === 'fixed' ? 'fixed' : 'rotating';
+  if (finalAssignmentMode === 'fixed' && !assigneeId) {
+    return res.status(400).json({ error: 'assigneeId is required for a fixed-assignment chore' });
+  }
+  if (finalAssignmentMode === 'fixed') {
+    const assignee = await prisma.user.findUnique({ where: { id: assigneeId } });
+    if (!assignee || assignee.householdId !== currentUser.householdId) {
+      return res.status(400).json({ error: 'assigneeId must be a member of your household' });
+    }
+  }
+
   let scheduleData = {};
   let firstDueDate;
 
@@ -670,12 +634,23 @@ app.post('/chores', requireAuth, async (req, res) => {
 
   const result = await prisma.$transaction(async (tx) => {
     const chore = await tx.chore.create({
-      data: { name, type: 'recurring', frequency, weight: weight || 1, householdId: currentUser.householdId, ...scheduleData },
+      data: {
+        name, type: 'recurring', frequency, weight: weight || 1, householdId: currentUser.householdId,
+        assignmentMode: finalAssignmentMode, ...scheduleData,
+      },
     });
-    const assignee = await getNextAssignee(tx, chore.id, chore.householdId);
-    await advanceRotation(tx, chore.id);
+
+    let firstAssigneeId;
+    if (finalAssignmentMode === 'fixed') {
+      firstAssigneeId = assigneeId;
+    } else {
+      const assignee = await getNextAssignee(tx, chore.id, chore.householdId);
+      await advanceRotation(tx, chore.id);
+      firstAssigneeId = assignee.id;
+    }
+
     const assignment = await tx.assignment.create({
-      data: { choreId: chore.id, userId: assignee.id, dueDate: firstDueDate },
+      data: { choreId: chore.id, userId: firstAssigneeId, dueDate: firstDueDate },
     });
     return { chore, assignment };
   });
@@ -745,7 +720,7 @@ app.delete('/chores/:id', requireAuth, async (req, res) => {
 // ============================================================
 // ROUTES — assignments (mark complete)
 // Requires both authentication (valid token) AND authorization
-// (this assignment actually belongs to the requesting user).
+// (this assignment actually belongs to the requesting user)
 // ============================================================
 app.patch('/assignments/:id/complete', requireAuth, async (req, res) => {
   const { id } = req.params;
