@@ -139,7 +139,7 @@ export default function ExpensesScreen() {
           <View style={styles.addFormHeader}>
             <Text style={styles.cardTitle}>New expense</Text>
             <Pressable onPress={() => setShowAddForm(false)}>
-              <Ionicons name="close" size={20} color={colors.ink} style={{ opacity: 0.5 }} />
+              <Ionicons name="close" size={20} color={colors.text} style={{ opacity: 0.5 }} />
             </Pressable>
           </View>
           <TextInput style={styles.input} placeholder="What was it for?" placeholderTextColor="#999" value={description} onChangeText={setDescription} />
@@ -161,12 +161,12 @@ export default function ExpensesScreen() {
           <Text style={[styles.statNumber, { color: colors.sage }]}>${totalSpent.toFixed(2)}</Text>
           <Text style={styles.statLabel}>total spent</Text>
         </View>
-        <View style={[styles.statCard, { backgroundColor: colors.terracottaTint }]}>
+        <View style={[styles.statCard, { backgroundColor: colors.coralTint }]}>
           <View style={styles.statHeaderRow}>
-            <Ionicons name="receipt-outline" size={15} color={colors.terracotta} />
-            <Text style={[styles.statHeaderLabel, { color: colors.terracotta }]}>PAST 30 DAYS</Text>
+            <Ionicons name="receipt-outline" size={15} color={colors.coral} />
+            <Text style={[styles.statHeaderLabel, { color: colors.coral }]}>PAST 30 DAYS</Text>
           </View>
-          <Text style={[styles.statNumber, { color: colors.terracotta }]}>{recentExpenses.length}</Text>
+          <Text style={[styles.statNumber, { color: colors.coral }]}>{recentExpenses.length}</Text>
           <Text style={styles.statLabel}>transactions logged</Text>
         </View>
       </View>
@@ -205,7 +205,7 @@ export default function ExpensesScreen() {
                     <Text style={styles.editSaveText}>Save</Text>
                   </Pressable>
                   <Pressable onPress={cancelEditExpense} style={styles.iconButton}>
-                    <Ionicons name="close" size={15} color={colors.ink} />
+                    <Ionicons name="close" size={15} color={colors.text} />
                   </Pressable>
                 </View>
               </View>
@@ -217,10 +217,10 @@ export default function ExpensesScreen() {
                 </View>
                 <Text style={styles.historyAmount}>${Number(e.amount).toFixed(2)}</Text>
                 <Pressable onPress={() => startEditExpense(e)} style={styles.iconButton}>
-                  <Ionicons name="create-outline" size={15} color={colors.sage} />
+                  <Ionicons name="create-outline" size={15} color={colors.blue} />
                 </Pressable>
                 <Pressable onPress={() => handleDeleteExpense(e.id, e.description)} style={[styles.iconButton, styles.iconButtonDanger]}>
-                  <Ionicons name="trash-outline" size={15} color={colors.terracotta} />
+                  <Ionicons name="trash-outline" size={15} color={colors.coral} />
                 </Pressable>
               </>
             )}
@@ -232,35 +232,35 @@ export default function ExpensesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
+  container: { flex: 1, backgroundColor: colors.background },
   content: { paddingHorizontal: 24, paddingBottom: 120 },
-  sectionTitle: { fontSize: 18, fontWeight: '600', color: colors.ink, marginTop: 8, marginBottom: 12 },
-  card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.mist, ...shadow },
+  sectionTitle: { fontSize: 18, fontWeight: '600', color: colors.text, marginTop: 8, marginBottom: 12 },
+  card: { backgroundColor: colors.card, borderRadius: radius.lg, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.border, ...shadow },
   addFormHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  cardTitle: { fontSize: 17, fontWeight: '700', color: colors.ink, marginBottom: 12 },
-  input: { borderWidth: 1, borderColor: colors.mist, borderRadius: radius.md, padding: 12, color: colors.ink, backgroundColor: colors.cream, marginBottom: 12 },
-  saveButton: { backgroundColor: colors.sage, borderRadius: radius.md, paddingVertical: 14, alignItems: 'center', marginTop: 4, ...shadow },
+  cardTitle: { fontSize: 17, fontWeight: '700', color: colors.text, marginBottom: 12 },
+  input: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: 12, color: colors.text, backgroundColor: colors.background, marginBottom: 12 },
+  saveButton: { backgroundColor: colors.blue, borderRadius: radius.md, paddingVertical: 14, alignItems: 'center', marginTop: 4, ...shadow },
   saveButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   settledText: { color: colors.sage, fontStyle: 'italic' },
-  transactionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.mist },
-  transactionText: { color: colors.ink, fontSize: 15, flex: 1 },
+  transactionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+  transactionText: { color: colors.text, fontSize: 15, flex: 1 },
   bold: { fontWeight: '700' },
-  amount: { color: colors.terracotta, fontWeight: '700' },
-  iconButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.sageTint, alignItems: 'center', justifyContent: 'center' },
-  iconButtonDanger: { backgroundColor: colors.terracottaTint },
+  amount: { color: colors.coral, fontWeight: '700' },
+  iconButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
+  iconButtonDanger: { backgroundColor: colors.coralTint },
   editActionRow: { flexDirection: 'row', gap: 8 },
   editSaveButton: { backgroundColor: colors.sageTint, borderRadius: radius.md, paddingVertical: 8, paddingHorizontal: 16, alignItems: 'center' },
   editSaveText: { color: colors.sage, fontWeight: '700', fontSize: 13 },
-  historyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, backgroundColor: colors.surface, borderRadius: radius.md, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: colors.mist, ...shadow },
+  historyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, backgroundColor: colors.card, borderRadius: radius.md, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: colors.border, ...shadow },
   historyRowSettled: { opacity: 0.5 },
-  historyDesc: { color: colors.ink, fontSize: 15, fontWeight: '500' },
-  historyMeta: { color: colors.ink, opacity: 0.6, fontSize: 12, marginTop: 2 },
-  historyAmount: { color: colors.ink, fontWeight: '700', fontSize: 15 },
+  historyDesc: { color: colors.text, fontSize: 15, fontWeight: '500' },
+  historyMeta: { color: colors.text, opacity: 0.6, fontSize: 12, marginTop: 2 },
+  historyAmount: { color: colors.text, fontWeight: '700', fontSize: 15 },
   error: { color: '#B5544A', marginBottom: 12, textAlign: 'center' },
   statsRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   statCard: { flex: 1, borderRadius: radius.lg, padding: 16 },
   statHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 10 },
   statHeaderLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
   statNumber: { fontSize: 30, fontWeight: '800', marginBottom: 4 },
-  statLabel: { fontSize: 12, color: colors.ink, opacity: 0.7 },
+  statLabel: { fontSize: 12, color: colors.text, opacity: 0.7 },
 });

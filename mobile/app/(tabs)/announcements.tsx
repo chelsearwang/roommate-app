@@ -140,7 +140,7 @@ export default function AnnouncementsScreen() {
       <View key={a.id} style={[styles.card, isResolved && styles.resolvedCard, showPinnedStyle && styles.pinnedCard]}>
         {showPinnedStyle && (
           <View style={styles.pinnedLabelRow}>
-            <Ionicons name="pin" size={12} color={colors.terracotta} />
+            <Ionicons name="pin" size={12} color={colors.coral} />
             <Text style={styles.pinnedLabel}>PINNED</Text>
           </View>
         )}
@@ -158,7 +158,7 @@ export default function AnnouncementsScreen() {
                 <Text style={[styles.actionPillText, { color: colors.sage }]}>Save</Text>
               </Pressable>
               <Pressable onPress={cancelEdit} style={styles.iconButton}>
-                <Ionicons name="close" size={15} color={colors.ink} />
+                <Ionicons name="close" size={15} color={colors.text} />
               </Pressable>
             </View>
           </>
@@ -167,14 +167,14 @@ export default function AnnouncementsScreen() {
             <Text style={[styles.announcementText, isResolved && styles.resolvedText]}>{a.content}</Text>
             <View style={styles.actionRow}>
               {!isResolved && (
-                <Pressable onPress={() => handleTogglePin(a)} style={[styles.actionPill, { backgroundColor: colors.terracottaTint }]}>
-                  <Ionicons name={a.pinned ? 'pin-outline' : 'pin'} size={14} color={colors.terracotta} />
-                  <Text style={[styles.actionPillText, { color: colors.terracotta }]}>{a.pinned ? 'Unpin' : 'Pin'}</Text>
+                <Pressable onPress={() => handleTogglePin(a)} style={[styles.actionPill, { backgroundColor: colors.coralTint }]}>
+                  <Ionicons name={a.pinned ? 'pin-outline' : 'pin'} size={14} color={colors.coral} />
+                  <Text style={[styles.actionPillText, { color: colors.coral }]}>{a.pinned ? 'Unpin' : 'Pin'}</Text>
                 </Pressable>
               )}
-              <Pressable onPress={() => startEdit(a)} style={[styles.actionPill, { backgroundColor: colors.mist }]}>
-                <Ionicons name="create-outline" size={14} color={colors.ink} />
-                <Text style={[styles.actionPillText, { color: colors.ink }]}>Edit</Text>
+              <Pressable onPress={() => startEdit(a)} style={[styles.actionPill, { backgroundColor: colors.blueTint }]}>
+                <Ionicons name="create-outline" size={14} color={colors.blue} />
+                <Text style={[styles.actionPillText, { color: colors.blue }]}>Edit</Text>
               </Pressable>
               {!isResolved && (
                 <Pressable onPress={() => handleResolve(a.id)} style={[styles.actionPill, { backgroundColor: colors.sageTint }]}>
@@ -183,7 +183,7 @@ export default function AnnouncementsScreen() {
                 </Pressable>
               )}
               <Pressable onPress={() => handleDelete(a.id)} style={styles.iconButton}>
-                <Ionicons name="trash-outline" size={15} color={colors.terracotta} />
+                <Ionicons name="trash-outline" size={15} color={colors.coral} />
               </Pressable>
             </View>
           </>
@@ -201,7 +201,7 @@ export default function AnnouncementsScreen() {
           <View style={styles.addFormHeader}>
             <Text style={styles.cardTitle}>New announcement</Text>
             <Pressable onPress={() => setShowAddForm(false)}>
-              <Ionicons name="close" size={20} color={colors.ink} style={{ opacity: 0.5 }} />
+              <Ionicons name="close" size={20} color={colors.text} style={{ opacity: 0.5 }} />
             </Pressable>
           </View>
           <TextInput
@@ -245,36 +245,36 @@ export default function AnnouncementsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
+  container: { flex: 1, backgroundColor: colors.background },
   content: { paddingHorizontal: 24, paddingBottom: 120 },
-  card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.mist, ...shadow },
-  pinnedCard: { borderWidth: 1.5, borderColor: colors.terracotta },
+  card: { backgroundColor: colors.card, borderRadius: radius.lg, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.border, ...shadow },
+  pinnedCard: { borderWidth: 1.5, borderColor: colors.coral },
   resolvedCard: { opacity: 0.55 },
   pinnedLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 },
-  pinnedLabel: { fontSize: 11, fontWeight: '700', color: colors.terracotta, letterSpacing: 0.5 },
+  pinnedLabel: { fontSize: 11, fontWeight: '700', color: colors.coral, letterSpacing: 0.5 },
   addFormHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  cardTitle: { fontSize: 17, fontWeight: '700', color: colors.ink },
-  input: { borderWidth: 1, borderColor: colors.mist, borderRadius: radius.md, padding: 12, color: colors.ink, backgroundColor: colors.cream, marginBottom: 12 },
+  cardTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
+  input: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: 12, color: colors.text, backgroundColor: colors.background, marginBottom: 12 },
   multiline: { minHeight: 70, textAlignVertical: 'top' },
-  chip: { alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 14, borderRadius: radius.md, backgroundColor: colors.cream, borderWidth: 1, borderColor: colors.mist, marginBottom: 12 },
+  chip: { alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 14, borderRadius: radius.md, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, marginBottom: 12 },
   chipSelected: { backgroundColor: colors.sage, borderColor: colors.sage },
-  chipText: { color: colors.ink, fontSize: 13 },
+  chipText: { color: colors.text, fontSize: 13 },
   chipTextSelected: { color: '#fff', fontWeight: '600' },
-  saveButton: { backgroundColor: colors.sage, borderRadius: radius.md, paddingVertical: 14, alignItems: 'center', marginTop: 4, ...shadow },
+  saveButton: { backgroundColor: colors.blue, borderRadius: radius.md, paddingVertical: 14, alignItems: 'center', marginTop: 4, ...shadow },
   saveButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 },
-  author: { fontWeight: '600', color: colors.ink, fontSize: 14 },
-  date: { color: colors.ink, opacity: 0.6, fontSize: 12, marginLeft: 'auto' },
-  announcementText: { color: colors.ink, fontSize: 15, marginBottom: 12 },
+  author: { fontWeight: '600', color: colors.text, fontSize: 14 },
+  date: { color: colors.text, opacity: 0.6, fontSize: 12, marginLeft: 'auto' },
+  announcementText: { color: colors.text, fontSize: 15, marginBottom: 12 },
   resolvedText: { textDecorationLine: 'line-through' },
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   actionPill: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: radius.md },
   actionPillText: { fontSize: 13, fontWeight: '700' },
-  iconButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.terracottaTint, alignItems: 'center', justifyContent: 'center' },
+  iconButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.coralTint, alignItems: 'center', justifyContent: 'center' },
   resolvedHeader: { paddingVertical: 12 },
-  resolvedHeaderText: { color: colors.ink, opacity: 0.7, fontSize: 14, fontWeight: '600' },
+  resolvedHeaderText: { color: colors.text, opacity: 0.7, fontSize: 14, fontWeight: '600' },
   resolvedHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   deleteAllButton: { paddingVertical: 8 },
-  deleteAllText: { color: colors.terracotta, fontSize: 13, fontWeight: '600' },
+  deleteAllText: { color: colors.coral, fontSize: 13, fontWeight: '600' },
   error: { color: '#B5544A', marginBottom: 12, textAlign: 'center' },
 });

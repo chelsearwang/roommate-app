@@ -9,8 +9,8 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.sage,
-        tabBarInactiveTintColor: colors.ink,
+        tabBarActiveTintColor: colors.blue,
+        tabBarInactiveTintColor: colors.text,
         tabBarStyle: {
           position: 'absolute',
           left: 20,
@@ -19,7 +19,7 @@ export default function TabLayout() {
           height: 78,
           paddingTop: 10,
           paddingBottom: 14,
-          backgroundColor: colors.surface,
+          backgroundColor: colors.card,
           borderRadius: radius.lg,
           borderTopWidth: 0,
           ...shadow,

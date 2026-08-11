@@ -78,16 +78,16 @@ export function CalendarPicker({ value, onSelect }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: colors.cream, borderRadius: radius.md, padding: 12, marginBottom: 8 },
+  container: { backgroundColor: colors.background, borderRadius: radius.md, padding: 12, marginBottom: 8 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   navButton: { padding: 6 },
-  monthLabel: { fontSize: 14, fontWeight: '700', color: colors.ink },
+  monthLabel: { fontSize: 14, fontWeight: '700', color: colors.text },
   weekdayRow: { flexDirection: 'row' },
-  weekdayLabel: { width: `${100 / 7}%`, textAlign: 'center', fontSize: 11, fontWeight: '700', color: colors.ink, opacity: 0.5 },
+  weekdayLabel: { width: `${100 / 7}%`, textAlign: 'center', fontSize: 11, fontWeight: '700', color: colors.text, opacity: 0.5 },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   dayCell: { width: `${100 / 7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },
   dayCircle: { width: '78%', height: '78%', borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
   dayCircleSelected: { backgroundColor: colors.sage },
-  dayText: { fontSize: 13, color: colors.ink },
+  dayText: { fontSize: 13, color: colors.text },
   dayTextSelected: { color: '#fff', fontWeight: '700' },
 });

@@ -59,16 +59,16 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: colors.cream },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 24, textAlign: 'center', color: colors.ink },
+  container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: colors.background },
+  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 24, textAlign: 'center', color: colors.text },
   input: {
     borderWidth: 1,
-    borderColor: colors.mist,
+    borderColor: colors.border,
     borderRadius: radius.sm,
     padding: 14,
     marginBottom: 16,
-    color: colors.ink,
-    backgroundColor: colors.surface,
+    color: colors.text,
+    backgroundColor: colors.card,
   },
   error: { color: '#B5544A', marginTop: 12, textAlign: 'center' },
 });

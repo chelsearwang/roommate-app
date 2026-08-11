@@ -38,7 +38,7 @@ export function GoogleWebSignInButton({ onError }: Props) {
 }
 
 const styles = StyleSheet.create({
-  button: { backgroundColor: colors.terracotta, borderRadius: radius.md, paddingVertical: 14, alignItems: 'center', marginBottom: 12, ...shadow },
+  button: { backgroundColor: colors.coral, borderRadius: radius.md, paddingVertical: 14, alignItems: 'center', marginBottom: 12, ...shadow },
   buttonText: { color: '#fff', fontWeight: '600', fontSize: 16 },
 });
 
@@ -91,7 +91,7 @@ export function GoogleWebSignInButton({ onIdToken, onError }: Props) {
 }
 
 const styles = StyleSheet.create({
-  button: { backgroundColor: colors.terracotta, borderRadius: radius.md, paddingVertical: 14, alignItems: 'center', marginBottom: 12, ...shadow },
+  button: { backgroundColor: colors.coral, borderRadius: radius.md, paddingVertical: 14, alignItems: 'center', marginBottom: 12, ...shadow },
   buttonText: { color: '#fff', fontWeight: '600', fontSize: 16 },
 });
 */

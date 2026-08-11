@@ -134,7 +134,7 @@ export default function SettingsScreen() {
                 <Text style={styles.saveEditText}>Save</Text>
               </Pressable>
               <Pressable onPress={() => setEditingName(false)} style={styles.iconButton}>
-                <Ionicons name="close" size={15} color={colors.ink} />
+                <Ionicons name="close" size={15} color={colors.text} />
               </Pressable>
             </View>
           </>
@@ -142,7 +142,7 @@ export default function SettingsScreen() {
           <View style={styles.nameRow}>
             <Text style={styles.householdName}>{householdName}</Text>
             <Pressable onPress={() => setEditingName(true)} style={styles.iconButton}>
-              <Ionicons name="create-outline" size={15} color={colors.sage} />
+              <Ionicons name="create-outline" size={15} color={colors.blue} />
             </Pressable>
           </View>
         )}
@@ -152,10 +152,10 @@ export default function SettingsScreen() {
         <View style={styles.inviteRow}>
           <Text style={styles.inviteCode} numberOfLines={1} adjustsFontSizeToFit>{inviteCode}</Text>
           <Pressable onPress={copyInviteCode} style={styles.iconButton}>
-            <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={16} color={colors.sage} />
+            <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={16} color={colors.blue} />
           </Pressable>
           <Pressable onPress={shareInviteCode} style={styles.iconButton}>
-            <Ionicons name="share-outline" size={16} color={colors.sage} />
+            <Ionicons name="share-outline" size={16} color={colors.blue} />
           </Pressable>
         </View>
         {copied ? <Text style={styles.copiedText}>Copied!</Text> : null}
@@ -180,28 +180,28 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
+  container: { flex: 1, backgroundColor: colors.background },
   content: { paddingHorizontal: 24, paddingBottom: 60 },
-  card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.mist, ...shadow },
-  cardTitle: { fontSize: 14, color: colors.ink, opacity: 0.7, marginBottom: 12 },
+  card: { backgroundColor: colors.card, borderRadius: radius.lg, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.border, ...shadow },
+  cardTitle: { fontSize: 14, color: colors.text, opacity: 0.7, marginBottom: 12 },
   avatarGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  avatarOption: { width: 50, height: 50, borderRadius: 25, backgroundColor: colors.cream, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
+  avatarOption: { width: 50, height: 50, borderRadius: 25, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
   avatarOptionSelected: { borderColor: colors.sage, backgroundColor: colors.sageTint },
   avatarOptionEmoji: { fontSize: 24 },
   nameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  householdName: { fontSize: 18, fontWeight: '700', color: colors.ink },
-  input: { borderWidth: 1, borderColor: colors.mist, borderRadius: radius.sm, padding: 12, color: colors.ink, backgroundColor: colors.cream, marginBottom: 12 },
+  householdName: { fontSize: 18, fontWeight: '700', color: colors.text },
+  input: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 12, color: colors.text, backgroundColor: colors.background, marginBottom: 12 },
   editRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   cancelButton: { paddingVertical: 8 },
-  cancelText: { color: colors.ink, opacity: 0.6 },
-  iconButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.sageTint, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  memberRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.mist },
+  cancelText: { color: colors.text, opacity: 0.6 },
+  iconButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  memberRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border },
   memberAvatar: { fontSize: 18 },
-  memberName: { fontSize: 15, color: colors.ink },
+  memberName: { fontSize: 15, color: colors.text },
   error: { color: '#B5544A', marginBottom: 12, textAlign: 'center' },
   saveEditButton: { backgroundColor: colors.sageTint, borderRadius: radius.md, paddingVertical: 10, paddingHorizontal: 20 },
   saveEditText: { color: colors.sage, fontWeight: '700', fontSize: 14 },
   inviteRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  inviteCode: { flex: 1, fontSize: 18, fontWeight: '700', color: colors.ink, letterSpacing: 1 },
+  inviteCode: { flex: 1, fontSize: 18, fontWeight: '700', color: colors.text, letterSpacing: 1 },
   copiedText: { fontSize: 12, color: colors.sage, marginTop: 8, fontWeight: '600' },
 });

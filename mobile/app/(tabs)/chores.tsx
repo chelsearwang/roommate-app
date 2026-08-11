@@ -85,8 +85,8 @@ function groupByPerson(chores: Chore[], members: Member[]): PersonRow[] {
 
 function weightMeta(weight: number) {
   if (weight === 1) return { label: 'light', bg: colors.sageTint, color: colors.sage, icon: '🌿' };
-  if (weight === 2) return { label: 'medium', bg: colors.mist, color: colors.ink, icon: '⚡' };
-  return { label: 'heavy', bg: colors.terracottaTint, color: colors.terracotta, icon: '🔥' };
+  if (weight === 2) return { label: 'medium', bg: colors.neutral, color: colors.text, icon: '⚡' };
+  return { label: 'heavy', bg: colors.coralTint, color: colors.coral, icon: '🔥' };
 }
 
 export default function ChoresScreen() {
@@ -307,7 +307,7 @@ export default function ChoresScreen() {
             <View style={styles.addFormHeader}>
               <Text style={styles.cardTitle}>New chore ✨</Text>
               <Pressable onPress={resetAddForm}>
-                <Ionicons name="close" size={20} color={colors.ink} style={{ opacity: 0.5 }} />
+                <Ionicons name="close" size={20} color={colors.text} style={{ opacity: 0.5 }} />
               </Pressable>
             </View>
 
@@ -527,15 +527,15 @@ export default function ChoresScreen() {
                         <Text style={[styles.choreName, isDone && styles.doneText]}>{chore.name}</Text>
                         <View style={styles.tagRow}>
                           {isOneTime ? (
-                            <View style={[styles.tag, { backgroundColor: colors.mist }]}><Text style={styles.tagText}>📌 one-time</Text></View>
+                            <View style={[styles.tag, { backgroundColor: colors.neutral }]}><Text style={styles.tagText}>📌 one-time</Text></View>
                           ) : (
                             <View style={styles.tag}><Text style={styles.tagText}>{chore.frequency}</Text></View>
                           )}
                           {isFixed && (
-                            <View style={[styles.tag, { backgroundColor: colors.mist }]}><Text style={styles.tagText}>📌 fixed</Text></View>
+                            <View style={[styles.tag, { backgroundColor: colors.neutral }]}><Text style={styles.tagText}>📌 fixed</Text></View>
                           )}
                           <View style={[styles.tag, { backgroundColor: wMeta.bg }]}><Text style={[styles.tagText, { color: wMeta.color }]}>{wMeta.icon} {wMeta.label}</Text></View>
-                          {isOverdue && <View style={[styles.tag, { backgroundColor: colors.terracottaTint }]}><Text style={[styles.tagText, { color: colors.terracotta }]}>overdue</Text></View>}
+                          {isOverdue && <View style={[styles.tag, { backgroundColor: colors.coralTint }]}><Text style={[styles.tagText, { color: colors.coral }]}>overdue</Text></View>}
                         </View>
                       </View>
                     )}
@@ -553,14 +553,14 @@ export default function ChoresScreen() {
                         <Text style={styles.markDoneText}>Save</Text>
                       </Pressable>
                       <Pressable onPress={cancelEdit} style={styles.iconButton}>
-                        <Ionicons name="close" size={15} color={colors.ink} />
+                        <Ionicons name="close" size={15} color={colors.text} />
                       </Pressable>
                     </View>
                   ) : (
                     <View style={styles.actionRow}>
                       {isDone ? (
                         <View style={[styles.markDoneButton, styles.markDoneButtonComplete]}>
-                          <Ionicons name="checkmark-circle" size={16} color={colors.ink} style={{ opacity: 0.4 }} />
+                          <Ionicons name="checkmark-circle" size={16} color={colors.text} style={{ opacity: 0.4 }} />
                           <Text style={styles.markDoneTextComplete}>Complete</Text>
                         </View>
                       ) : isMine ? (
@@ -570,15 +570,15 @@ export default function ChoresScreen() {
                         </Pressable>
                       ) : (
                         <Pressable onPress={() => handleNudge(assignment.id, person.name)} style={[styles.markDoneButton, styles.nudgeButton]}>
-                          <Ionicons name="notifications-outline" size={16} color={colors.terracotta} />
+                          <Ionicons name="notifications-outline" size={16} color={colors.coral} />
                           <Text style={styles.nudgeText}>Nudge</Text>
                         </Pressable>
                       )}
                       <Pressable onPress={() => startEdit(chore)} style={styles.iconButton}>
-                        <Ionicons name="create-outline" size={15} color={colors.sage} />
+                        <Ionicons name="create-outline" size={15} color={colors.blue} />
                       </Pressable>
                       <Pressable onPress={() => handleDelete(chore.id, chore.name)} style={[styles.iconButton, styles.iconButtonDanger]}>
-                        <Ionicons name="trash-outline" size={15} color={colors.terracotta} />
+                        <Ionicons name="trash-outline" size={15} color={colors.coral} />
                       </Pressable>
                     </View>
                   )}
@@ -593,48 +593,48 @@ export default function ChoresScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
+  container: { flex: 1, backgroundColor: colors.background },
   content: { paddingHorizontal: 24, paddingBottom: 120 },
-  card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: colors.mist, ...shadow },
+  card: { backgroundColor: colors.card, borderRadius: radius.lg, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: colors.border, ...shadow },
   addFormHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  cardTitle: { fontSize: 17, fontWeight: '700', color: colors.ink },
-  label: { fontSize: 11, fontWeight: '700', color: colors.ink, opacity: 0.5, letterSpacing: 0.5, marginBottom: 8, marginTop: 12 },
-  input: { borderWidth: 1, borderColor: colors.mist, borderRadius: radius.md, padding: 12, color: colors.ink, backgroundColor: colors.cream, marginBottom: 8 },
+  cardTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
+  label: { fontSize: 11, fontWeight: '700', color: colors.text, opacity: 0.5, letterSpacing: 0.5, marginBottom: 8, marginTop: 12 },
+  input: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: 12, color: colors.text, backgroundColor: colors.background, marginBottom: 8 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: radius.md, backgroundColor: colors.cream, borderWidth: 1, borderColor: colors.mist },
-  typeChip: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: radius.md, backgroundColor: colors.cream, borderWidth: 1, borderColor: colors.mist },
-  chipSelected: { backgroundColor: colors.sage, borderColor: colors.sage },
-  chipText: { color: colors.ink, fontSize: 13 },
+  chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: radius.md, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border },
+  typeChip: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: radius.md, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border },
+  chipSelected: { backgroundColor: colors.blue, borderColor: colors.blue },
+  chipText: { color: colors.text, fontSize: 13 },
   chipTextSelected: { color: '#fff', fontWeight: '600' },
   patternPreview: { fontSize: 12, color: colors.sage, fontWeight: '600', marginTop: 4, fontStyle: 'italic' },
-  saveButton: { backgroundColor: colors.sage, borderRadius: radius.md, paddingVertical: 14, alignItems: 'center', marginTop: 16, ...shadow },
+  saveButton: { backgroundColor: colors.blue, borderRadius: radius.md, paddingVertical: 14, alignItems: 'center', marginTop: 16, ...shadow },
   saveButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   personHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10, marginTop: 8 },
   personAvatar: { fontSize: 18 },
-  personName: { fontSize: 16, fontWeight: '700', color: colors.ink, flex: 1 },
-  activeCount: { fontSize: 13, color: colors.ink, opacity: 0.6 },
+  personName: { fontSize: 16, fontWeight: '700', color: colors.text, flex: 1 },
+  activeCount: { fontSize: 13, color: colors.text, opacity: 0.6 },
   emptyState: { paddingVertical: 20, alignItems: 'center' },
-  emptyStateText: { color: colors.ink, opacity: 0.5, fontSize: 14, fontStyle: 'italic' },
-  choreCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.mist, ...shadow },
+  emptyStateText: { color: colors.text, opacity: 0.5, fontSize: 14, fontStyle: 'italic' },
+  choreCard: { backgroundColor: colors.card, borderRadius: radius.lg, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border, ...shadow },
   choreCardDone: { opacity: 0.5 },
   choreTopRow: { flexDirection: 'row', gap: 12, marginBottom: 12, alignItems: 'flex-start' },
-  statusCircle: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: colors.clay, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  statusCircle: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
   statusCircleDone: { backgroundColor: colors.sage, borderColor: colors.sage },
-  choreName: { fontSize: 15, fontWeight: '600', color: colors.ink, marginBottom: 6 },
+  choreName: { fontSize: 15, fontWeight: '600', color: colors.text, marginBottom: 6 },
   doneText: { textDecorationLine: 'line-through' },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  tag: { backgroundColor: colors.mist, borderRadius: radius.sm, paddingVertical: 4, paddingHorizontal: 10 },
-  tagText: { fontSize: 11, color: colors.ink, fontWeight: '600' },
-  dueDateText: { fontSize: 12, color: colors.ink, opacity: 0.6, fontWeight: '600' },
-  dueDateOverdue: { color: colors.terracotta, opacity: 1 },
-  divider: { height: 1, backgroundColor: colors.mist, marginBottom: 12 },
+  tag: { backgroundColor: colors.neutral, borderRadius: radius.sm, paddingVertical: 4, paddingHorizontal: 10 },
+  tagText: { fontSize: 11, color: colors.text, fontWeight: '600' },
+  dueDateText: { fontSize: 12, color: colors.text, opacity: 0.6, fontWeight: '600' },
+  dueDateOverdue: { color: colors.coral, opacity: 1 },
+  divider: { height: 1, backgroundColor: colors.neutral, marginBottom: 12 },
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   markDoneButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.sageTint, borderRadius: radius.md, paddingVertical: 10 },
-  markDoneButtonComplete: { backgroundColor: colors.mist },
+  markDoneButtonComplete: { backgroundColor: colors.neutral },
   markDoneText: { color: colors.sage, fontWeight: '700', fontSize: 13 },
-  markDoneTextComplete: { color: colors.ink, opacity: 0.6, fontWeight: '700', fontSize: 13 },
-  iconButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.sageTint, alignItems: 'center', justifyContent: 'center' },
-  iconButtonDanger: { backgroundColor: colors.terracottaTint },
-  nudgeButton: { backgroundColor: colors.terracottaTint },
-  nudgeText: { color: colors.terracotta, fontWeight: '700', fontSize: 13 },
+  markDoneTextComplete: { color: colors.text, opacity: 0.6, fontWeight: '700', fontSize: 13 },
+  iconButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
+  iconButtonDanger: { backgroundColor: colors.coralTint },
+  nudgeButton: { backgroundColor: colors.coralTint },
+  nudgeText: { color: colors.coral, fontWeight: '700', fontSize: 13 },
 });

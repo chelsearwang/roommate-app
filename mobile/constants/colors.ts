@@ -1,33 +1,19 @@
-
 export const colors = {
-  cream: '#FFF8F0',
-  surface: '#FFFFFF',
-  sage: '#5FA87A',
-  sageTint: '#DCEEE1',
-  clay: '#F0B49E',
-  terracotta: '#E8613F',
-  terracottaTint: '#FBDDD3',
-  ink: '#3D3230',
-  mist: '#EDE2D3',
-};
+  background: '#F7F8FC',
+  card: '#FFFFFF',
+  text: '#1A1D2E',
+  border: 'rgba(0, 0, 0, 0.08)',
+  neutral: '#E9EBF3',
 
-/*
-export const colors = {
-  cream: '#F0F4FA',
-  surface: '#FFFFFF',
-  sage: '#4A7FA5',
-  sageTint: '#DCE8F2',
-  clay: '#F5C99B',
-  terracotta: '#d97a7a',
-  terracottaTint: '#f7dddd',
-  ink: '#2E3A4A',
-  mist: '#DCE3EC',
-};
-*/
+  blueTint: '#E6EEF9',
+  blue: '#4E85D4',
 
-// #E8B84A / #FBEFD0
-// #D97AA0 / #F7DDE8
-// #E8935C', #FBE4D0
+  coralTint: '#FCE8E4',
+  coral: '#E8735A',
+
+  sageTint: '#E3F2EC',
+  sage: '#5EAB8A',
+};
 
 export const radius = {
   sm: 12,
@@ -36,9 +22,25 @@ export const radius = {
 };
 
 export const shadow = {
-  shadowColor: '#4A3F3A',
+  shadowColor: '#1A1D2E',
   shadowOffset: { width: 0, height: 4 },
   shadowOpacity: 0.18,
   shadowRadius: 10,
   elevation: 6,
+};
+
+export const darkColors = {
+  background: '#12141E',
+  card: '#1C1F2E',
+  text: '#E8EAF2',
+  border: 'rgba(255, 255, 255, 0.08)',
+  neutral: '#2A2E42',
+  blue: '#5E95E0',
+  blueDark: '#5578A8',
+  blueGradientEnd: '#6EB3E8',
+  coralTint: '#FCE8E4',
+  coral: '#E8735A',
+  sageTint: '#E3F2EC',
+  sage: '#5EAB8A',
+  sageGradientEnd: '#5DC4A8',
 };

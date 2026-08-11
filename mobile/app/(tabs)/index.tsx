@@ -106,7 +106,7 @@ export default function DashboardScreen() {
           <Text style={styles.title}>{meData?.household?.name ?? 'Household'}</Text>
         </View>
         <Pressable onPress={() => router.push('/settings')}>
-          <Ionicons name="settings-outline" size={26} color={colors.ink} />
+          <Ionicons name="settings-outline" size={26} color={colors.text} />
         </Pressable>
       </View>
 
@@ -117,10 +117,10 @@ export default function DashboardScreen() {
             <Text style={styles.inviteCodeValue} numberOfLines={1} adjustsFontSizeToFit>{meData.household.inviteCode}</Text>
           </View>
           <Pressable onPress={copyInviteCode} style={styles.iconButton}>
-            <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={16} color={colors.sage} />
+            <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={16} color={colors.blue} />
           </Pressable>
           <Pressable onPress={shareInviteCode} style={styles.iconButton}>
-            <Ionicons name="share-outline" size={16} color={colors.sage} />
+            <Ionicons name="share-outline" size={16} color={colors.blue} />
           </Pressable>
         </View>
       )}
@@ -138,15 +138,15 @@ export default function DashboardScreen() {
 
       {notifications.map((n) => (
         <Pressable key={n.id} onPress={() => dismissNotification(n.id)} style={styles.nudgeBanner}>
-          <Ionicons name="notifications" size={18} color={colors.terracotta} />
+          <Ionicons name="notifications" size={18} color={colors.coral} />
           <Text style={styles.nudgeBannerText}>{n.content}</Text>
-          <Ionicons name="close" size={16} color={colors.ink} style={{ opacity: 0.4 }} />
+          <Ionicons name="close" size={16} color={colors.text} style={{ opacity: 0.4 }} />
         </Pressable>
       ))}
 
       {myOverdueCount > 0 && (
         <Pressable onPress={() => router.push('/chores')} style={styles.overdueBanner}>
-          <Ionicons name="alert-circle-outline" size={20} color={colors.terracotta} />
+          <Ionicons name="alert-circle-outline" size={20} color={colors.coral} />
           <Text style={styles.overdueText}>
             You have {myOverdueCount} overdue chore{myOverdueCount > 1 ? 's' : ''} — tap to view
           </Text>
@@ -165,12 +165,12 @@ export default function DashboardScreen() {
             <Text style={[styles.statNumber, { color: colors.sage }]}>{stats.completedThisWeek}</Text>
             <Text style={styles.statLabel}>chores completed</Text>
           </View>
-          <View style={[styles.statCard, { backgroundColor: colors.terracottaTint }]}>
+          <View style={[styles.statCard, { backgroundColor: colors.coralTint }]}>
             <View style={styles.statHeaderRow}>
-              <Ionicons name="alert-circle" size={15} color={colors.terracotta} />
-              <Text style={[styles.statHeaderLabel, { color: colors.terracotta }]}>OVERDUE</Text>
+              <Ionicons name="alert-circle" size={15} color={colors.coral} />
+              <Text style={[styles.statHeaderLabel, { color: colors.coral }]}>OVERDUE</Text>
             </View>
-            <Text style={[styles.statNumber, { color: colors.terracotta }]}>{stats.householdOverdueCount}</Text>
+            <Text style={[styles.statNumber, { color: colors.coral }]}>{stats.householdOverdueCount}</Text>
             <Text style={styles.statLabel}>across all roommates</Text>
           </View>
         </View>
@@ -179,7 +179,7 @@ export default function DashboardScreen() {
       <View style={styles.card}>
         <View style={styles.sectionHeaderRow}>
           <View style={styles.sectionHeaderLeft}>
-            <Ionicons name="sparkles" size={17} color={colors.terracotta} />
+            <Ionicons name="sparkles" size={17} color={colors.blue} />
             <Text style={styles.cardSectionTitle}>Announcements</Text>
           </View>
           <Pressable onPress={() => router.push('/announcements')}>
@@ -196,7 +196,7 @@ export default function DashboardScreen() {
                 <View style={styles.rightGroup}>
                   <Text style={styles.announcementTime}>{formatRelativeTime(a.createdAt)}</Text>
                   <View style={styles.pinSlot}>
-                    {a.pinned && <Ionicons name="pin" size={12} color={colors.terracotta} />}
+                    {a.pinned && <Ionicons name="pin" size={12} color={colors.coral} />}
                   </View>
                 </View>
               </View>
@@ -207,12 +207,12 @@ export default function DashboardScreen() {
       </View>
 
       <View style={styles.buttonGrid}>
-        <Pressable onPress={() => router.push('/chores')} style={[styles.navCard, { backgroundColor: colors.sage }]}>
+        <Pressable onPress={() => router.push('/chores')} style={[styles.navCard, { backgroundColor: colors.blue }]}>
           <Ionicons name="list-outline" size={28} color="#fff" />
           <Text style={styles.navLabelLight}>Chores</Text>
           <Text style={styles.navSubtitle}>{myPendingCount} pending</Text>
         </Pressable>
-        <Pressable onPress={() => router.push('/expenses')} style={[styles.navCard, { backgroundColor: colors.terracotta }]}>
+        <Pressable onPress={() => router.push('/expenses')} style={[styles.navCard, { backgroundColor: colors.sage }]}>
           <Ionicons name="cash-outline" size={28} color="#fff" />
           <Text style={styles.navLabelLight}>Expenses</Text>
           <Text style={styles.navSubtitle}>{myOwedAmount > 0 ? `You owe $${myOwedAmount.toFixed(2)}` : 'All settled'}</Text>
@@ -223,48 +223,48 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
+  container: { flex: 1, backgroundColor: colors.background },
   content: { paddingHorizontal: 24, paddingBottom: 120 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
-  eyebrow: { fontSize: 12, fontWeight: '700', color: colors.ink, opacity: 0.5, letterSpacing: 1, marginBottom: 2 },
-  title: { fontSize: 26, fontWeight: 'bold', color: colors.ink },
+  eyebrow: { fontSize: 12, fontWeight: '700', color: colors.text, opacity: 0.5, letterSpacing: 1, marginBottom: 2 },
+  title: { fontSize: 26, fontWeight: 'bold', color: colors.text },
   overdueBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: colors.terracottaTint, borderRadius: radius.md, padding: 14, marginBottom: 20,
+    backgroundColor: colors.coralTint, borderRadius: radius.md, padding: 14, marginBottom: 20,
   },
-  overdueText: { color: colors.ink, fontSize: 14, fontWeight: '600', flex: 1 },
+  overdueText: { color: colors.text, fontSize: 14, fontWeight: '600', flex: 1 },
   nudgeBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: colors.terracottaTint, borderRadius: radius.md, padding: 14, marginBottom: 12,
+    backgroundColor: colors.coralTint, borderRadius: radius.md, padding: 14, marginBottom: 12,
   },
-  nudgeBannerText: { color: colors.ink, fontSize: 14, fontWeight: '600', flex: 1 },
+  nudgeBannerText: { color: colors.text, fontSize: 14, fontWeight: '600', flex: 1 },
   statsRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   statCard: { flex: 1, borderRadius: radius.lg, padding: 16 },
   statHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 10 },
   statHeaderLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
   statNumber: { fontSize: 30, fontWeight: '800', marginBottom: 4 },
-  statLabel: { fontSize: 12, color: colors.ink, opacity: 0.7 },
-  card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: colors.mist, ...shadow },
+  statLabel: { fontSize: 12, color: colors.text, opacity: 0.7 },
+  card: { backgroundColor: colors.card, borderRadius: radius.lg, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: colors.border, ...shadow },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  cardSectionTitle: { fontSize: 17, fontWeight: '700', color: colors.ink },
-  seeAllText: { color: colors.sage, fontWeight: '600', fontSize: 13 },
-  emptyText: { color: colors.ink, opacity: 0.6, fontStyle: 'italic' },
+  cardSectionTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
+  seeAllText: { color: colors.blue, fontWeight: '600', fontSize: 13 },
+  emptyText: { color: colors.text, opacity: 0.6, fontStyle: 'italic' },
   announcementItem: { paddingVertical: 10 },
-  announcementDivider: { borderBottomWidth: 1, borderBottomColor: colors.mist },
+  announcementDivider: { borderBottomWidth: 1, borderBottomColor: colors.border },
   announcementTopRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
-  announcementAuthor: { fontWeight: '700', color: colors.ink, fontSize: 13 },
-  announcementTime: { color: colors.ink, opacity: 0.5, fontSize: 12 },
+  announcementAuthor: { fontWeight: '700', color: colors.text, fontSize: 13 },
+  announcementTime: { color: colors.text, opacity: 0.5, fontSize: 12 },
   rightGroup: { flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 'auto' },
   pinSlot: { width: 14, alignItems: 'center' },
-  announcementContent: { color: colors.ink, opacity: 0.8, fontSize: 13 },
+  announcementContent: { color: colors.text, opacity: 0.8, fontSize: 13 },
   buttonGrid: { flexDirection: 'row', gap: 12 },
   navCard: { flex: 1, borderRadius: radius.lg, padding: 20, alignItems: 'center', ...shadow },
   navLabelLight: { fontSize: 16, fontWeight: '700', color: '#fff', marginTop: 8 },
   navSubtitle: { fontSize: 12, color: '#fff', opacity: 0.9, marginTop: 4 },
   error: { color: '#B5544A', marginBottom: 12, textAlign: 'center' },
-  inviteCodeCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surface, borderRadius: radius.lg, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: colors.mist, ...shadow },
-  inviteCodeLabel: { fontSize: 11, fontWeight: '700', color: colors.ink, opacity: 0.5, letterSpacing: 0.5, marginBottom: 2 },
-  inviteCodeValue: { fontSize: 16, fontWeight: '700', color: colors.ink, letterSpacing: 1 },
-  iconButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.sageTint, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  inviteCodeCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.card, borderRadius: radius.lg, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: colors.border, ...shadow },
+  inviteCodeLabel: { fontSize: 11, fontWeight: '700', color: colors.text, opacity: 0.5, letterSpacing: 0.5, marginBottom: 2 },
+  inviteCodeValue: { fontSize: 16, fontWeight: '700', color: colors.text, letterSpacing: 1 },
+  iconButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
 });

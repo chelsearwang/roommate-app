@@ -30,7 +30,7 @@ export function GamificationBar({ name, avatarEmoji, xp, avatarLevel, streakCoun
         <View style={styles.greetingColumn}>
           <Text style={styles.greeting}>Hey, {name}! 👋</Text>
           <View style={styles.pillRow}>
-            <View style={[styles.pill, { backgroundColor: colors.terracottaTint }]}>
+            <View style={[styles.pill, { backgroundColor: colors.coralTint }]}>
               <Text style={styles.pillText}>🔥 {streakCount}-day streak</Text>
             </View>
             <View style={[styles.pill, { backgroundColor: colors.sageTint }]}>
@@ -53,26 +53,26 @@ export function GamificationBar({ name, avatarEmoji, xp, avatarLevel, streakCoun
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: 18, marginBottom: 20, borderWidth: 1, borderColor: colors.mist },
+  card: { backgroundColor: colors.card, borderRadius: radius.lg, padding: 18, marginBottom: 20, borderWidth: 1, borderColor: colors.border },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 16 },
-  avatarBox: { width: 60, height: 60, borderRadius: radius.md, backgroundColor: colors.cream, alignItems: 'center', justifyContent: 'center' },
+  avatarBox: { width: 60, height: 60, borderRadius: radius.md, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
   avatarEmoji: { fontSize: 32 },
   statusBadge: {
     position: 'absolute', bottom: -4, right: -4,
     width: 22, height: 22, borderRadius: 11,
     backgroundColor: colors.sage, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: colors.surface,
+    borderWidth: 2, borderColor: colors.card,
   },
-  statusBadgeWarning: { backgroundColor: colors.terracotta },
+  statusBadgeWarning: { backgroundColor: colors.coral },
   greetingColumn: { flex: 1 },
-  greeting: { fontSize: 18, fontWeight: '700', color: colors.ink, marginBottom: 8 },
+  greeting: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 8 },
   pillRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   pill: { paddingVertical: 5, paddingHorizontal: 12, borderRadius: radius.md },
-  pillText: { fontSize: 12, fontWeight: '700', color: colors.ink },
+  pillText: { fontSize: 12, fontWeight: '700', color: colors.text },
   levelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   levelText: { fontSize: 14, fontWeight: '700', color: colors.sage },
-  xpFraction: { fontSize: 13, color: colors.ink, opacity: 0.7 },
-  track: { height: 10, backgroundColor: colors.mist, borderRadius: 6, overflow: 'hidden', marginBottom: 8 },
+  xpFraction: { fontSize: 13, color: colors.text, opacity: 0.7 },
+  track: { height: 10, backgroundColor: colors.border, borderRadius: 6, overflow: 'hidden', marginBottom: 8 },
   fill: { height: '100%', backgroundColor: colors.sage, borderRadius: 6 },
-  captionText: { fontSize: 12, color: colors.ink, opacity: 0.7, textAlign: 'center' },
+  captionText: { fontSize: 12, color: colors.text, opacity: 0.7, textAlign: 'center' },
 });

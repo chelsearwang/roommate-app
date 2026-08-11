@@ -74,18 +74,18 @@ export default function HouseholdScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: colors.cream },
-  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 24, textAlign: 'center', color: colors.ink },
-  card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.mist, ...shadow },
-  sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12, color: colors.ink },
+  container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: colors.background },
+  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 24, textAlign: 'center', color: colors.text },
+  card: { backgroundColor: colors.card, borderRadius: radius.lg, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.border, ...shadow },
+  sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12, color: colors.text },
   input: {
     borderWidth: 1,
-    borderColor: colors.mist,
+    borderColor: colors.border,
     borderRadius: radius.sm,
     padding: 12,
     marginBottom: 12,
-    color: colors.ink,
-    backgroundColor: colors.cream,
+    color: colors.text,
+    backgroundColor: colors.background,
   },
   error: { color: '#B5544A', marginTop: 12, textAlign: 'center' },
 });
