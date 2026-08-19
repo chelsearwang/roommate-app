@@ -93,7 +93,7 @@ app.post('/auth/google/mobile', async (req, res) => {
 });
 
 // ============================================================
-// AUTH — middleware that protects routes by verifying the JWT
+// AUTH — verifies the JWT
 // ============================================================
 function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -141,7 +141,7 @@ async function advanceRotation(db, choreId) {
 
 // Called whenever chores are listed
 // Catches up any assignments whose due date has passed, even if never completed  
-// marks the missed one "overdue" and rotates to the next person
+// (marks the missed one "overdue" and rotates to the next person)
 async function ensureAssignmentsUpToDate(chore) {
   if (chore.type === 'one_time') {
     const assignment = await prisma.assignment.findFirst({ where: { choreId: chore.id } });
@@ -281,7 +281,7 @@ app.patch('/chores/:id', requireAuth, async (req, res) => {
   const updated = await prisma.chore.update({ where: { id }, data });
 
   // Reflect the new pattern on the current cycle immediately
-  // A done/overdue assignment is a resolved past event for this cycle and is left untouched
+  // A done/overdue assignment is is left untouched (resolved past event)
   // New pattern applies starting next rotation in that case
   if (newPendingDueDate) {
     const pendingAssignment = await prisma.assignment.findFirst({
@@ -495,7 +495,7 @@ app.get('/announcements', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'You must join a household first' });
   }
 
-  // Pinned posts float to the top as a group; within each group, newest first.
+  // Pinned posts float to the top as a group; within each group, newest first
   const announcements = await prisma.announcement.findMany({
     where: { householdId: currentUser.householdId },
     orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }, { id: 'asc' }],
@@ -560,7 +560,7 @@ app.delete('/announcements/:id', requireAuth, async (req, res) => {
   res.json({ deleted: true });
 });
 // ============================================================
-// ROUTES — chores (create + assign, list with auto catch-up)
+// ROUTES — chores (create + assign)
 // ============================================================
 app.post('/chores', requireAuth, async (req, res) => {
   const { name, type, frequency, weight, scheduleWeekday, scheduleDate, dueDate, assigneeId, assignmentMode } = req.body;
@@ -718,7 +718,6 @@ app.delete('/chores/:id', requireAuth, async (req, res) => {
 // ============================================================
 // ROUTES — assignments (mark complete)
 // Requires both authentication (valid token) AND authorization
-// (this assignment actually belongs to the requesting user)
 // ============================================================
 app.patch('/assignments/:id/complete', requireAuth, async (req, res) => {
   const { id } = req.params;
@@ -803,8 +802,7 @@ app.post('/expenses', requireAuth, async (req, res) => {
       },
     });
 
-    // Even split across everyone in the household; 
-    // payer's own share is pre-settled since they don't owe themselves
+    // Even split across everyone in the household
     const shares = await Promise.all(householdUsers.map((user) =>
       tx.expenseShare.create({
         data: {

@@ -5,7 +5,7 @@ A full-stack mobile app that helps roommates coordinate chores, split expenses, 
 **🔗 Live app:** [roommanager-kkw4.onrender.com](https://roommanager-kkw4.onrender.com)
 **🔗 API:** [roommate-app-backend.onrender.com](https://roommate-app-backend.onrender.com)
 
-> The backend is hosted on Render's free tier, which spins down after inactivity — the first load after a while may take 30–50 seconds to wake up. Everything after that is instant.
+> The backend is hosted on Render's free tier, which goes to sleep after a period of inactivity. The first load may take 30–50 seconds to wake up.
 
 ---
 
@@ -36,17 +36,15 @@ A full-stack mobile app that helps roommates coordinate chores, split expenses, 
 
 ## Technical Highlights
 
-**Chore rotation with time-driven catch-up.** Rotation advances based on due dates passing, not task completion — checked whenever the app is opened (no cron job needed). A `while` loop can fast-forward through multiple missed cycles in one check.
+Chore rotation checks due dates whenever someone opens the app, and a `while` loop fast-forwards through any cycles that were missed while nobody had it open.
 
-**Debt-simplification for expenses.** The settle-up algorithm nets everyone's overall balance and greedily matches debtors to creditors — minimizing the total number of real payments needed.
+The settle-up algorithm nets out everyone's balance first, then greedily pairs debtors with creditors so the household ends up with the fewest possible number of actual payments, instead of everyone paying everyone.
 
-**Custom recurrence scheduling.** Chores support patterns like "the 3rd Friday of every month" — including deriving that pattern automatically just from tapping a date on a calendar, with correct handling of the edge case where a month has a 5th occurrence of a weekday (which doesn't exist in every month).
+Custom recurrence (like "3rd Friday of every month") gets derived automatically from tapping a date on the calendar. Edge case: some months don't have a 5th occurrence of a given weekday, so that had to be handled explicitly.
 
-**Real, working OAuth on web.** The web sign-in flow was rebuilt from a popup-based approach to a full-page redirect after discovering that Google's own login pages set a strict `Cross-Origin-Opener-Policy` header, which breaks popup-based auth once deployed.
+Web OAuth was originally a popup flow, and it broke in production. Google's login pages set a strict `Cross-Origin-Opener-Policy` header that kills popup-based auth once deployed, so I rebuilt it as a full-page redirect instead.
 
-**Server-side authorization on every mutating route.** The frontend hiding a button (e.g., "Nudge" only shows for someone else's chore) is a UX nicety, never the actual security boundary — every route independently re-verifies household membership and, where relevant, resource ownership, server-side.
-
-**Deliberately testable business logic.** Calendar-recurrence math, XP leveling, and the debt-simplification algorithm are extracted into pure functions, independent of Express or the database — covered by Jest unit tests.
+Calendar-recurrence math, XP leveling, and the debt-simplification logic are all pure functions with no dependency on Express or the database, which is what made it possible to actually unit test them with Jest.
 
 ---
 
@@ -74,7 +72,7 @@ A full-stack mobile app that helps roommates coordinate chores, split expenses, 
 ## Known Limitations & Future Improvements
 
 - In-app notifications (nudges, overdue reminders, completion alerts) — fully working
-- Native OS push notifications — planned; in-app notifications cover the same events today
+- Native OS push notifications — planned
 - Real-time updates (WebSockets) — currently refreshes when a screen is opened, not push-based
 - Migrating auth to a managed service (Supabase) for real token refresh — current JWTs expire after 7 days with no renewal
 - Accessibility pass (screen-reader labels on icon-only buttons)
