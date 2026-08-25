@@ -10,7 +10,7 @@ export default function HouseholdScreen() {
   const [name, setName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState('');
-  const { token, user, refreshUser } = useAuth();
+  const { token, user, refreshUser, logout } = useAuth();
 
   async function handleCreate() {
     setError('');
@@ -43,6 +43,10 @@ export default function HouseholdScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Welcome, {user?.name}! 👋</Text>
+
+      <Pressable onPress={logout} style={styles.signOutLink}>
+        <Text style={styles.signOutText}>Not you? Sign out</Text>
+      </Pressable>
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Create a household</Text>
@@ -88,4 +92,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   error: { color: '#B5544A', marginTop: 12, textAlign: 'center' },
+  signOutLink: { alignSelf: 'center', paddingVertical: 8, marginBottom: 12 },
+  signOutText: { color: colors.text, opacity: 0.5, fontSize: 13, textDecorationLine: 'underline' },
 });

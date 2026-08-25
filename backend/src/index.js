@@ -439,6 +439,11 @@ app.post('/households/leave', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'You are not in a household' });
   }
 
+  const memberCount = await prisma.user.count({ where: { householdId: currentUser.householdId } });
+  if (memberCount === 1) {
+    return res.status(400).json({ error: 'You are the only member — delete the household instead of leaving it.' });
+  }
+
   const user = await prisma.user.update({
     where: { id: req.userId },
     data: { householdId: null },
@@ -462,6 +467,25 @@ async function generateUniqueInviteCode() {
     if (!existing) return code;
   }
 }
+
+app.delete('/households', requireAuth, async (req, res) => {
+  const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!currentUser.householdId) {
+    return res.status(400).json({ error: 'You are not in a household' });
+  }
+  const householdId = currentUser.householdId;
+
+  await prisma.$transaction([
+    prisma.expenseShare.deleteMany({ where: { expense: { householdId } } }),
+    prisma.expense.deleteMany({ where: { householdId } }),
+    prisma.chore.deleteMany({ where: { householdId } }), // cascades to Assignments automatically
+    prisma.announcement.deleteMany({ where: { householdId } }),
+    prisma.user.updateMany({ where: { householdId }, data: { householdId: null } }),
+    prisma.household.delete({ where: { id: householdId } }),
+  ]);
+
+  res.json({ deleted: true });
+});
 
 // ============================================================
 // ROUTES — announcements (create, list, resolve)

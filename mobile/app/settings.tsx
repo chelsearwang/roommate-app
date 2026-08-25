@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { View, Text, TextInput, ScrollView, Pressable, StyleSheet, Alert, Platform } from 'react-native';
+import { View, Text, TextInput, ScrollView, Pressable, StyleSheet, Alert, Platform, Modal } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '@/context/AuthContext';
@@ -22,6 +22,8 @@ export default function SettingsScreen() {
   const [error, setError] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [copied, setCopied] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   const loadData = useCallback(async () => {
     try {
@@ -89,7 +91,19 @@ export default function SettingsScreen() {
         await apiRequest('/households/leave', { method: 'POST' }, token!);
         await refreshUser();
       } catch (err: any) {
-        setError(err.message);
+        if (err.message.includes('only member')) {
+          const explainMessage = "You're the only member, so leaving isn't possible — it would leave the household empty. Delete it instead?";
+          if (Platform.OS === 'web') {
+            if (window.confirm(explainMessage)) setShowDeleteConfirm(true);
+          } else {
+            Alert.alert("Can't leave — you're the only member", explainMessage, [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Delete household', style: 'destructive', onPress: () => setShowDeleteConfirm(true) },
+            ]);
+          }
+        } else {
+          setError(err.message);
+        }
       }
     };
     const message = "You'll need an invite code to rejoin. Are you sure?";
@@ -109,8 +123,18 @@ export default function SettingsScreen() {
     return 0;
   });
 
+  async function handleDeleteHousehold() {
+    try {
+      await apiRequest('/households', { method: 'DELETE' }, token!);
+      await refreshUser();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <ScreenHeader eyebrow="ACCOUNT" title="Settings" emoji="⚙️" />
 
       <View style={styles.card}>
@@ -175,8 +199,54 @@ export default function SettingsScreen() {
 
       <CozyButton title="Log out" onPress={logout} />
       <CozyButton title="Leave household" variant="secondary" onPress={handleLeave} />
-    </ScrollView>
-  );
+
+      <Pressable onPress={() => setShowDeleteConfirm(true)} style={styles.deleteHouseholdTrigger}>
+        <Text style={styles.deleteHouseholdTriggerText}>Delete household</Text>
+      </Pressable>
+      </ScrollView>
+
+      <Modal
+        visible={showDeleteConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); }}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); }}
+          />
+          <View style={styles.modalCard}>
+            <Text style={styles.dangerTitle}>⚠️ Delete household</Text>
+            <Text style={styles.dangerText}>
+              This permanently deletes all chores, expenses, and announcements for every member of "{householdName}". This can't be undone.
+            </Text>
+            <Text style={styles.dangerLabel}>Type "{householdName}" to confirm</Text>
+            <TextInput
+              style={styles.input}
+              value={deleteConfirmText}
+              onChangeText={setDeleteConfirmText}
+              placeholder={householdName}
+              placeholderTextColor="#999"
+              autoCapitalize="none"
+            />
+            <View style={styles.editRow}>
+              <Pressable
+                onPress={handleDeleteHousehold}
+                disabled={deleteConfirmText !== householdName}
+                style={[styles.deleteConfirmButton, deleteConfirmText !== householdName && styles.deleteConfirmButtonDisabled]}
+              >
+                <Text style={styles.deleteConfirmButtonText}>Permanently delete</Text>
+              </Pressable>
+              <Pressable onPress={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); }} style={styles.iconButton}>
+                <Ionicons name="close" size={15} color={colors.text} />
+              </Pressable>
+            </View>
+          </View>
+        </View>
+        </Modal>
+        </>
+      );
 }
 
 const styles = StyleSheet.create({
@@ -204,4 +274,14 @@ const styles = StyleSheet.create({
   inviteRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   inviteCode: { flex: 1, fontSize: 18, fontWeight: '700', color: colors.text, letterSpacing: 1 },
   copiedText: { fontSize: 12, color: colors.sage, marginTop: 8, fontWeight: '600' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalCard: { backgroundColor: colors.card, borderRadius: radius.lg, padding: 20, width: '100%', maxWidth: 400, borderWidth: 1.5, borderColor: colors.coral },
+  dangerTitle: { fontSize: 15, fontWeight: '700', color: colors.coral, marginBottom: 8 },
+  dangerText: { fontSize: 13, color: colors.text, opacity: 0.8, marginBottom: 12, lineHeight: 18 },
+  dangerLabel: { fontSize: 12, fontWeight: '700', color: colors.text, opacity: 0.6, marginBottom: 6 },
+  deleteConfirmButton: { flex: 1, backgroundColor: colors.coral, borderRadius: radius.md, paddingVertical: 12, alignItems: 'center' },
+  deleteConfirmButtonDisabled: { opacity: 0.4 },
+  deleteConfirmButtonText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  deleteHouseholdTrigger: { paddingVertical: 14, alignItems: 'center', marginTop: 8 },
+  deleteHouseholdTriggerText: { color: colors.coral, fontWeight: '600', fontSize: 14 },
 });
