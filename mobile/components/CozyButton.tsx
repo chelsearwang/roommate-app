@@ -8,7 +8,7 @@ type Props = {
 };
 
 export function CozyButton({ title, onPress, variant = 'primary' }: Props) {
-  const bg = variant === 'primary' ? colors.blue : colors.sage;
+  const bg = variant === 'primary' ? colors.blue : variant === 'danger' ? colors.coral : colors.sage;
   return (
     <Pressable style={[styles.button, { backgroundColor: bg }]} onPress={onPress}>
       <Text style={styles.text}>{title}</Text>

@@ -438,17 +438,54 @@ app.post('/households/leave', requireAuth, async (req, res) => {
   if (!currentUser.householdId) {
     return res.status(400).json({ error: 'You are not in a household' });
   }
+  const householdId = currentUser.householdId;
 
-  const memberCount = await prisma.user.count({ where: { householdId: currentUser.householdId } });
+  const memberCount = await prisma.user.count({ where: { householdId } });
   if (memberCount === 1) {
     return res.status(400).json({ error: 'You are the only member — delete the household instead of leaving it.' });
   }
 
-  const user = await prisma.user.update({
-    where: { id: req.userId },
-    data: { householdId: null },
+  const unsettledAsDebtor = await prisma.expenseShare.findFirst({
+    where: { userId: req.userId, settled: false },
+  });
+  if (unsettledAsDebtor) {
+    return res.status(400).json({ error: 'You have unsettled expenses. Settle up before leaving.' });
+  }
+
+  const unsettledAsCreditor = await prisma.expenseShare.findFirst({
+    where: { expense: { payerId: req.userId }, settled: false },
+  });
+  if (unsettledAsCreditor) {
+    return res.status(400).json({ error: 'Others still owe you money. Settle up before leaving.' });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // recurring chores fixed to me need a new owner among the remaining members
+    const myFixedPendingAssignments = await tx.assignment.findMany({
+      where: {
+        userId: req.userId,
+        status: 'pending',
+        chore: { householdId, assignmentMode: 'fixed', type: 'recurring' },
+      },
+      include: { chore: true },
+    });
+
+    const remainingMembers = await tx.user.findMany({
+      where: { householdId, id: { not: req.userId } },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+
+    for (const assignment of myFixedPendingAssignments) {
+      if (remainingMembers.length > 0) {
+        await tx.assignment.update({ where: { id: assignment.id }, data: { userId: remainingMembers[0].id } });
+        await tx.chore.update({ where: { id: assignment.chore.id }, data: { assignmentMode: 'rotating' } });
+      }
+    }
+
+    await tx.user.update({ where: { id: req.userId }, data: { householdId: null } });
   });
 
+  const user = await prisma.user.findUnique({ where: { id: req.userId } });
   res.json({ user });
 });
 
@@ -1026,6 +1063,43 @@ app.patch('/notifications/:id/read', requireAuth, async (req, res) => {
   }
   await prisma.notification.update({ where: { id }, data: { read: true } });
   res.json({ read: true });
+});
+
+// ============================================================
+// DELETE ACCOUNT
+// ============================================================
+app.delete('/me', requireAuth, async (req, res) => {
+  const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+
+  if (currentUser.householdId) {
+    return res.status(400).json({ error: 'Leave or delete your household before deleting your account' });
+  }
+
+  const unsettledAsDebtor = await prisma.expenseShare.findFirst({
+    where: { userId: req.userId, settled: false },
+  });
+  if (unsettledAsDebtor) {
+    return res.status(400).json({ error: 'You have unsettled expenses. Settle up before deleting your account.' });
+  }
+
+  const unsettledAsCreditor = await prisma.expenseShare.findFirst({
+    where: { expense: { payerId: req.userId }, settled: false },
+  });
+  if (unsettledAsCreditor) {
+    return res.status(400).json({ error: 'Others still owe you money for expenses you paid. Settle up before deleting your account.' });
+  }
+
+  await prisma.$transaction([
+    prisma.expenseShare.deleteMany({ where: { userId: req.userId } }),
+    prisma.expenseShare.deleteMany({ where: { expense: { payerId: req.userId } } }),
+    prisma.expense.deleteMany({ where: { payerId: req.userId } }),
+    prisma.assignment.deleteMany({ where: { userId: req.userId } }),
+    prisma.announcement.deleteMany({ where: { authorId: req.userId } }),
+    prisma.notification.deleteMany({ where: { userId: req.userId } }),
+    prisma.user.delete({ where: { id: req.userId } }),
+  ]);
+
+  res.json({ deleted: true });
 });
 
 // ============================================================

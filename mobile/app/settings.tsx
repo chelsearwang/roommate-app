@@ -10,6 +10,7 @@ import { AVATAR_OPTIONS } from '@/constants/avatars';
 import { colors, radius, shadow } from '@/constants/colors';
 import * as Clipboard from 'expo-clipboard';
 import { Share } from 'react-native';
+import { router } from 'expo-router';
 
 type Member = { id: string; name: string; avatarEmoji: string };
 
@@ -24,6 +25,8 @@ export default function SettingsScreen() {
   const [copied, setCopied] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  // const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
+  // const [deleteAccountText, setDeleteAccountText] = useState('');
 
   const loadData = useCallback(async () => {
     try {
@@ -101,6 +104,16 @@ export default function SettingsScreen() {
               { text: 'Delete household', style: 'destructive', onPress: () => setShowDeleteConfirm(true) },
             ]);
           }
+        } else if (err.message.includes('Settle up before leaving')) {
+          const explainMessage = 'Settle up your expenses before leaving this household.';
+          if (Platform.OS === 'web') {
+            if (window.confirm(explainMessage + ' Go to Expenses now?')) router.push('/expenses');
+          } else {
+            Alert.alert('Unsettled expenses', explainMessage, [
+              { text: 'Later', style: 'cancel' },
+              { text: 'Go to Expenses', onPress: () => router.push('/expenses') },
+            ]);
+          }
         } else {
           setError(err.message);
         }
@@ -129,6 +142,15 @@ export default function SettingsScreen() {
       await refreshUser();
     } catch (err: any) {
       setError(err.message);
+    }
+  }
+
+  function handleDeleteAccountFromSettings() {
+    const message = 'You need to leave or delete this household before you can delete your account.';
+    if (Platform.OS === 'web') {
+      window.alert(message);
+    } else {
+      Alert.alert("Can't delete account yet", message);
     }
   }
 
@@ -200,9 +222,17 @@ export default function SettingsScreen() {
       <CozyButton title="Log out" onPress={logout} />
       <CozyButton title="Leave household" variant="secondary" onPress={handleLeave} />
 
-      <Pressable onPress={() => setShowDeleteConfirm(true)} style={styles.deleteHouseholdTrigger}>
-        <Text style={styles.deleteHouseholdTriggerText}>Delete household</Text>
+      <CozyButton title="Delete household" variant="danger" onPress={() => setShowDeleteConfirm(true)} />
+      
+      {/*
+      <Pressable onPress={() => setShowDeleteAccountConfirm(true)} style={styles.deleteHouseholdTrigger}>
+        <Text style={styles.deleteHouseholdTriggerText}>Delete my account</Text>
       </Pressable>
+      */}
+
+      {/* added this line below */}
+
+      <CozyButton title="Delete my account" variant="danger" onPress={handleDeleteAccountFromSettings} />
       </ScrollView>
 
       <Modal
@@ -245,6 +275,49 @@ export default function SettingsScreen() {
           </View>
         </View>
         </Modal>
+        
+        {/*
+        <Modal
+          visible={showDeleteAccountConfirm}
+          transparent
+          animationType="fade"
+          onRequestClose={() => { setShowDeleteAccountConfirm(false); setDeleteAccountText(''); }}
+        >
+          <View style={styles.modalOverlay}>
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={() => { setShowDeleteAccountConfirm(false); setDeleteAccountText(''); }}
+            />
+            <View style={styles.modalCard}>
+              <Text style={styles.dangerTitle}>⚠️ Delete your account</Text>
+              <Text style={styles.dangerText}>
+                This permanently deletes your account and everything tied to it. This can't be undone.
+              </Text>
+              <Text style={styles.dangerLabel}>Type DELETE to confirm</Text>
+              <TextInput
+                style={styles.input}
+                value={deleteAccountText}
+                onChangeText={setDeleteAccountText}
+                placeholder="DELETE"
+                placeholderTextColor="#999"
+                autoCapitalize="characters"
+              />
+              <View style={styles.editRow}>
+                <Pressable
+                  onPress={handleDeleteAccount}
+                  disabled={deleteAccountText !== 'DELETE'}
+                  style={[styles.deleteConfirmButton, deleteAccountText !== 'DELETE' && styles.deleteConfirmButtonDisabled]}
+                >
+                  <Text style={styles.deleteConfirmButtonText}>Permanently delete</Text>
+                </Pressable>
+                <Pressable onPress={() => { setShowDeleteAccountConfirm(false); setDeleteAccountText(''); }} style={styles.iconButton}>
+                  <Ionicons name="close" size={15} color={colors.text} />
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+        */}
         </>
       );
 }
