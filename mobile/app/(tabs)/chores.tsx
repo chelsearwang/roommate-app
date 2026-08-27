@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { View, Text, TextInput, ScrollView, Pressable, StyleSheet, Alert, Platform } from 'react-native';
+import { View, Text, TextInput, ScrollView, Pressable, StyleSheet, Alert, Platform, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '@/context/AuthContext';
@@ -8,6 +8,7 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { Toast } from '@/components/Toast';
 import { CalendarPicker, toDateString } from '@/components/CalendarPicker';
 import { colors, radius, shadow } from '@/constants/colors';
+import { LoadingScreen } from '@/components/LoadingScreen';
 
 const FREQUENCIES = ['daily', 'weekly', 'biweekly', 'monthly'] as const;
 const WEIGHTS = [
@@ -96,6 +97,10 @@ export default function ChoresScreen() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
+  const [completingId, setCompletingId] = useState<string | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const [choreType, setChoreType] = useState<'recurring' | 'one_time'>('recurring');
   const [name, setName] = useState('');
@@ -128,6 +133,8 @@ export default function ChoresScreen() {
       setMembers(membersData.members);
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setIsLoading(false);
     }
   }, [token]);
 
@@ -150,6 +157,7 @@ export default function ChoresScreen() {
       return;
     }
 
+    setIsCreating(true);
     try {
       if (choreType === 'one_time') {
         if (!oneTimeDueDate || !oneTimeAssigneeId) {
@@ -184,19 +192,34 @@ export default function ChoresScreen() {
           }),
         }, token!);
       }
+      await loadData();
       resetAddForm();
-      loadData();
-    } catch (err: any) {
-      setError(err.message);
-    }
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setIsCreating(false);
+      }
   }
 
+  /*
   async function handleComplete(assignmentId: string) {
     try {
       await apiRequest(`/assignments/${assignmentId}/complete`, { method: 'PATCH' }, token!);
       loadData();
     } catch (err: any) {
       setError(err.message);
+    }
+  } */
+
+  async function handleComplete(assignmentId: string) {
+    setCompletingId(assignmentId);
+    try {
+      await apiRequest(`/assignments/${assignmentId}/complete`, { method: 'PATCH' }, token!);
+      await loadData();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setCompletingId(null);
     }
   }
 
@@ -243,6 +266,7 @@ export default function ChoresScreen() {
   }
 
   async function saveEdit(chore: Chore) {
+    setIsSavingEdit(true);
     try {
       const body: any = { name: editName, weight: editWeight };
       if (chore.type === 'recurring') {
@@ -261,13 +285,16 @@ export default function ChoresScreen() {
         body.assigneeId = editAssigneeId;
       }
       await apiRequest(`/chores/${chore.id}`, { method: 'PATCH', body: JSON.stringify(body) }, token!);
+      await loadData();
       setEditingChoreId(null);
-      loadData();
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setIsSavingEdit(false);
     }
   }
 
+  /*
   function handleDelete(choreId: string, choreName: string) {
     const performDelete = async () => {
       try {
@@ -285,6 +312,24 @@ export default function ChoresScreen() {
         { text: 'Delete', style: 'destructive', onPress: performDelete },
       ]);
     }
+  } */
+
+  function handleDelete(choreId: string, choreName: string) {
+    const performDelete = () => {
+      setChores((prev) => prev.filter((c) => c.id !== choreId));
+      apiRequest(`/chores/${choreId}`, { method: 'DELETE' }, token!).catch((err) => {
+        setError(err.message);
+        loadData();
+      });
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Delete "${choreName}"? This removes it and its history for everyone. This can't be undone.`)) performDelete();
+    } else {
+      Alert.alert('Delete chore?', `This removes "${choreName}" and its history for everyone. This can't be undone.`, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: performDelete },
+      ]);
+    }
   }
 
   const people = groupByPerson(chores, members);
@@ -293,6 +338,10 @@ export default function ChoresScreen() {
     if (b.userId === user?.id) return 1;
     return 0;
   });
+
+  if (isLoading) {
+    return <LoadingScreen message="Loading chores..." />;
+  }
 
   return (
     <View style={{ flex: 1 }}>
@@ -406,8 +455,8 @@ export default function ChoresScreen() {
               ))}
             </View>
 
-            <Pressable onPress={handleCreate} style={styles.saveButton}>
-              <Text style={styles.saveButtonText}>Save chore</Text>
+            <Pressable onPress={handleCreate} disabled={isCreating} style={[styles.saveButton, isCreating && { opacity: 0.6 }]}>
+              <Text style={styles.saveButtonText}>{isCreating ? 'Saving...' : 'Save chore'}</Text>
             </Pressable>
           </View>
         )}
@@ -549,8 +598,8 @@ export default function ChoresScreen() {
                   <View style={styles.divider} />
                   {isEditing ? (
                     <View style={styles.actionRow}>
-                      <Pressable onPress={() => saveEdit(chore)} style={[styles.markDoneButton, { backgroundColor: colors.sageTint }]}>
-                        <Text style={styles.markDoneText}>Save</Text>
+                      <Pressable onPress={() => saveEdit(chore)} disabled={isSavingEdit} style={[styles.markDoneButton, { backgroundColor: colors.sageTint }, isSavingEdit && { opacity: 0.6 }]}>
+                        <Text style={styles.markDoneText}>{isSavingEdit ? 'Saving...' : 'Save'}</Text>
                       </Pressable>
                       <Pressable onPress={cancelEdit} style={styles.iconButton}>
                         <Ionicons name="close" size={15} color={colors.text} />
@@ -564,9 +613,22 @@ export default function ChoresScreen() {
                           <Text style={styles.markDoneTextComplete}>Complete</Text>
                         </View>
                       ) : isMine ? (
-                        <Pressable onPress={() => handleComplete(assignment.id)} style={styles.markDoneButton}>
-                          <Ionicons name="checkmark-circle" size={16} color={colors.sage} />
-                          <Text style={styles.markDoneText}>Mark done</Text>
+                        <Pressable
+                          onPress={() => handleComplete(assignment.id)}
+                          disabled={completingId === assignment.id}
+                          style={[styles.markDoneButton, completingId === assignment.id && { opacity: 0.6 }]}
+                        >
+                          {completingId === assignment.id ? (
+                            <>
+                              <ActivityIndicator size="small" color={colors.sage} />
+                              <Text style={styles.markDoneText}>Completing...</Text>
+                            </>
+                          ) : (
+                            <>
+                              <Ionicons name="checkmark-circle" size={16} color={colors.sage} />
+                              <Text style={styles.markDoneText}>Mark done</Text>
+                            </>
+                          )}
                         </Pressable>
                       ) : (
                         <Pressable onPress={() => handleNudge(assignment.id, person.name)} style={[styles.markDoneButton, styles.nudgeButton]}>

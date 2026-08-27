@@ -9,6 +9,7 @@ import { apiRequest } from '@/utils/api';
 import { GamificationBar } from '@/components/GamificationBar';
 import { formatRelativeTime } from '@/utils/time';
 import { colors, radius, shadow } from '@/constants/colors';
+import { LoadingScreen } from '@/components/LoadingScreen';
 import * as Clipboard from 'expo-clipboard';
 import { Share } from 'react-native';
 
@@ -18,6 +19,8 @@ type MeData = { xp: number; avatarLevel: number; name: string; household?: { str
 type Stats = { completedThisWeek: number; householdOverdueCount: number };
 type Transaction = { from: string; to: string; amount: number };
 type NotificationItem = { id: string; content: string };
+
+let hasDashboardLoadedOnce = false;
 
 export default function DashboardScreen() {
   const { user, token } = useAuth();
@@ -30,8 +33,10 @@ export default function DashboardScreen() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const loadData = useCallback(async () => {
+    setIsLoading(true);
     try {
       const [announcementsData, choresData, meResponse, statsData, settleData, notificationsData] = await Promise.all([
         apiRequest('/announcements', {}, token!),
@@ -49,6 +54,9 @@ export default function DashboardScreen() {
       setNotifications(notificationsData.notifications);
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setIsLoading(false);
+      hasDashboardLoadedOnce = true;
     }
   }, [token]);
 
@@ -67,6 +75,7 @@ export default function DashboardScreen() {
     .filter((t) => t.from === user?.id)
     .reduce((sum, t) => sum + t.amount, 0);
 
+  /*
   async function dismissNotification(id: string) {
     try {
       await apiRequest(`/notifications/${id}/read`, { method: 'PATCH' }, token!);
@@ -74,6 +83,12 @@ export default function DashboardScreen() {
     } catch (err: any) {
       setError(err.message);
     }
+  }
+    */
+  
+  function dismissNotification(id: string) {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    apiRequest(`/notifications/${id}/read`, { method: 'PATCH' }, token!).catch((err) => setError(err.message));
   }
   
   /*
@@ -96,6 +111,14 @@ export default function DashboardScreen() {
     } catch {
       // cancelled or failed silently — nothing to surface
     }
+  }
+
+  if (isLoading) {
+    return (
+      <LoadingScreen
+        message={hasDashboardLoadedOnce ? 'Loading dashboard...' : 'Waking up your household... this can take a moment'}
+      />
+    );
   }
 
   return (

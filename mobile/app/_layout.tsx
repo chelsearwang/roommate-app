@@ -5,6 +5,7 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { LoadingScreen } from '@/components/LoadingScreen';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -17,7 +18,7 @@ function RootLayoutNav() {
   const inHouseholdScreen = segments[0] === 'household';
 
   if (isLoading) {
-    return null;
+    return <LoadingScreen message="Loading..." />;
   }
 
   if (!token && !inLoginScreen) {

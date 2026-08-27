@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { apiRequest } from '@/utils/api';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { colors, radius, shadow } from '@/constants/colors';
+import { LoadingScreen } from '@/components/LoadingScreen';
 
 type Announcement = {
   id: string;
@@ -26,6 +27,9 @@ export default function AnnouncementsScreen() {
   const [showResolved, setShowResolved] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isPosting, setIsPosting] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const loadAnnouncements = useCallback(async () => {
     try {
@@ -33,6 +37,8 @@ export default function AnnouncementsScreen() {
       setAnnouncements(data.announcements);
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setIsLoading(false);
     }
   }, [token]);
 
@@ -41,33 +47,28 @@ export default function AnnouncementsScreen() {
   async function handleCreate() {
     if (!content) return;
     setError('');
+    setIsPosting(true);
     try {
       await apiRequest('/announcements', { method: 'POST', body: JSON.stringify({ content, pinned }) }, token!);
+      await loadAnnouncements();
       setContent('');
       setPinned(false);
       setShowAddForm(false);
-      loadAnnouncements();
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setIsPosting(false);
     }
   }
 
-  async function handleResolve(id: string) {
-    try {
-      await apiRequest(`/announcements/${id}/resolve`, { method: 'PATCH' }, token!);
-      loadAnnouncements();
-    } catch (err: any) {
-      setError(err.message);
-    }
+  function handleResolve(id: string) {
+    setAnnouncements((prev) => prev.map((a) => (a.id === id ? { ...a, resolved: true } : a)));
+    apiRequest(`/announcements/${id}/resolve`, { method: 'PATCH' }, token!).catch((err) => setError(err.message));
   }
 
-  async function handleTogglePin(a: Announcement) {
-    try {
-      await apiRequest(`/announcements/${a.id}`, { method: 'PATCH', body: JSON.stringify({ pinned: !a.pinned }) }, token!);
-      loadAnnouncements();
-    } catch (err: any) {
-      setError(err.message);
-    }
+  function handleTogglePin(a: Announcement) {
+    setAnnouncements((prev) => prev.map((item) => (item.id === a.id ? { ...item, pinned: !item.pinned } : item)));
+    apiRequest(`/announcements/${a.id}`, { method: 'PATCH', body: JSON.stringify({ pinned: !a.pinned }) }, token!).catch((err) => setError(err.message));
   }
 
   function startEdit(a: Announcement) {
@@ -81,12 +82,15 @@ export default function AnnouncementsScreen() {
   }
 
   async function saveEdit(id: string) {
+    setIsSavingEdit(true);
     try {
       await apiRequest(`/announcements/${id}`, { method: 'PATCH', body: JSON.stringify({ content: editContent }) }, token!);
+      await loadAnnouncements();
       setEditingId(null);
-      loadAnnouncements();
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setIsSavingEdit(false);
     }
   }
 
@@ -154,8 +158,8 @@ export default function AnnouncementsScreen() {
           <>
             <TextInput style={[styles.input, styles.multiline]} value={editContent} onChangeText={setEditContent} multiline />
             <View style={styles.actionRow}>
-              <Pressable onPress={() => saveEdit(a.id)} style={[styles.actionPill, { backgroundColor: colors.sageTint }]}>
-                <Text style={[styles.actionPillText, { color: colors.sage }]}>Save</Text>
+              <Pressable onPress={() => saveEdit(a.id)} disabled={isSavingEdit} style={[styles.actionPill, { backgroundColor: colors.sageTint }, isSavingEdit && { opacity: 0.6 }]}>
+                <Text style={[styles.actionPillText, { color: colors.sage }]}>{isSavingEdit ? 'Saving...' : 'Save'}</Text>
               </Pressable>
               <Pressable onPress={cancelEdit} style={styles.iconButton}>
                 <Ionicons name="close" size={15} color={colors.text} />
@@ -192,6 +196,10 @@ export default function AnnouncementsScreen() {
     );
   }
 
+  if (isLoading) {
+    return <LoadingScreen message="Loading announcements..." />;
+  }
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <ScreenHeader eyebrow="THE BOARD" title="Announcements" emoji="📣" rightAction={{ label: 'Post', onPress: () => setShowAddForm(true) }} />
@@ -215,8 +223,8 @@ export default function AnnouncementsScreen() {
           <Pressable onPress={() => setPinned(!pinned)} style={[styles.chip, pinned && styles.chipSelected]}>
             <Text style={[styles.chipText, pinned && styles.chipTextSelected]}>📌 Pin this</Text>
           </Pressable>
-          <Pressable onPress={handleCreate} style={styles.saveButton}>
-            <Text style={styles.saveButtonText}>Post</Text>
+          <Pressable onPress={handleCreate} disabled={isPosting} style={[styles.saveButton, isPosting && { opacity: 0.6 }]}>
+            <Text style={styles.saveButtonText}>{isPosting ? 'Posting...' : 'Post'}</Text>
           </Pressable>
         </View>
       )}

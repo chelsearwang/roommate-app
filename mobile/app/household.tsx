@@ -14,7 +14,10 @@ export default function HouseholdScreen() {
   const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
   const [deleteAccountText, setDeleteAccountText] = useState('');
   const { token, user, refreshUser, logout } = useAuth();
+  const [isCreatingHousehold, setIsCreatingHousehold] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
 
+  /*
   async function handleCreate() {
     setError('');
     try {
@@ -27,8 +30,22 @@ export default function HouseholdScreen() {
     } catch (err: any) {
       setError(err.message);
     }
+  } */
+
+  async function handleCreate() {
+    setError('');
+    setIsCreatingHousehold(true);
+    try {
+      await apiRequest('/households/create', { method: 'POST', body: JSON.stringify({ name }) }, token!);
+      await refreshUser();
+      router.replace('/(tabs)');
+    } catch (err: any) {
+      setError(err.message);
+      setIsCreatingHousehold(false);
+    }
   }
 
+  /*
   async function handleJoin() {
     setError('');
     try {
@@ -40,6 +57,19 @@ export default function HouseholdScreen() {
       router.replace('/(tabs)');
     } catch (err: any) {
       setError(err.message);
+    }
+  } */
+
+  async function handleJoin() {
+    setError('');
+    setIsJoining(true);
+    try {
+      await apiRequest('/households/join', { method: 'POST', body: JSON.stringify({ inviteCode }) }, token!);
+      await refreshUser();
+      router.replace('/(tabs)');
+    } catch (err: any) {
+      setError(err.message);
+      setIsJoining(false);
     }
   }
 
@@ -72,7 +102,7 @@ export default function HouseholdScreen() {
           value={name}
           onChangeText={setName}
         />
-        <CozyButton title="Create" onPress={handleCreate} />
+        <CozyButton title={isCreatingHousehold ? 'Creating...' : 'Create'} onPress={handleCreate} />
       </View>
 
       <View style={styles.card}>
@@ -84,7 +114,7 @@ export default function HouseholdScreen() {
           value={inviteCode}
           onChangeText={setInviteCode}
         />
-        <CozyButton title="Join" variant="secondary" onPress={handleJoin} />
+        <CozyButton title={isJoining ? 'Joining...' : 'Join'} variant="secondary" onPress={handleJoin} />
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}

@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { apiRequest } from '@/utils/api';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { colors, radius, shadow } from '@/constants/colors';
+import { LoadingScreen } from '@/components/LoadingScreen';
 
 type Expense = {
   id: string;
@@ -29,6 +30,9 @@ export default function ExpensesScreen() {
   const [editDescription, setEditDescription] = useState('');
   const [editAmount, setEditAmount] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLogging, setIsLogging] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -40,6 +44,8 @@ export default function ExpensesScreen() {
       setTransactions(settleData.transactions);
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setIsLoading(false);
     }
   }, [token]);
 
@@ -53,14 +59,17 @@ export default function ExpensesScreen() {
     const parsedAmount = parseFloat(amount);
     if (!description || !parsedAmount) return;
     setError('');
+    setIsLogging(true);
     try {
       await apiRequest('/expenses', { method: 'POST', body: JSON.stringify({ description, amount: parsedAmount }) }, token!);
+      await loadData();
       setDescription('');
       setAmount('');
       setShowAddForm(false);
-      loadData();
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setIsLogging(false);
     }
   }
 
@@ -96,6 +105,7 @@ export default function ExpensesScreen() {
     setEditAmount('');
   }
 
+  /*
   function handleDeleteExpense(id: string, description: string) {
     const performDelete = async () => {
       try {
@@ -114,20 +124,43 @@ export default function ExpensesScreen() {
         { text: 'Delete', style: 'destructive', onPress: performDelete },
       ]);
     }
+  } */
+
+  function handleDeleteExpense(id: string, description: string) {
+    const performDelete = () => {
+      setExpenses((prev) => prev.filter((e) => e.id !== id));
+      apiRequest(`/expenses/${id}`, { method: 'DELETE' }, token!).catch((err) => {
+        setError(err.message);
+        loadData();
+      });
+    };
+    const message = `Delete "${description}"? This can't be undone.`;
+    if (Platform.OS === 'web') {
+      if (window.confirm(message)) performDelete();
+    } else {
+      Alert.alert('Delete expense?', message, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: performDelete },
+      ]);
+    }
   }
 
   async function saveEditExpense(id: string) {
     const parsedAmount = parseFloat(editAmount);
+    setIsSavingEdit(true);
     try {
-      await apiRequest(`/expenses/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ description: editDescription, amount: parsedAmount }),
-      }, token!);
+      await apiRequest(`/expenses/${id}`, { method: 'PATCH', body: JSON.stringify({ description: editDescription, amount: parsedAmount }) }, token!);
+      await loadData();
       setEditingExpenseId(null);
-      loadData();
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setIsSavingEdit(false);
     }
+  }
+
+  if (isLoading) {
+    return <LoadingScreen message="Loading expenses..." />;
   }
 
   return (
@@ -144,8 +177,8 @@ export default function ExpensesScreen() {
           </View>
           <TextInput style={styles.input} placeholder="What was it for?" placeholderTextColor="#999" value={description} onChangeText={setDescription} />
           <TextInput style={styles.input} placeholder="Amount" placeholderTextColor="#999" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
-          <Pressable onPress={handleCreate} style={styles.saveButton}>
-            <Text style={styles.saveButtonText}>Log expense</Text>
+          <Pressable onPress={handleCreate} disabled={isLogging} style={[styles.saveButton, isLogging && { opacity: 0.6 }]}>
+            <Text style={styles.saveButtonText}>{isLogging ? 'Logging...' : 'Log expense'}</Text>
           </Pressable>
         </View>
       )}
@@ -201,8 +234,8 @@ export default function ExpensesScreen() {
                 <TextInput style={styles.input} value={editDescription} onChangeText={setEditDescription} />
                 <TextInput style={styles.input} value={editAmount} onChangeText={setEditAmount} keyboardType="decimal-pad" />
                 <View style={styles.editActionRow}>
-                  <Pressable onPress={() => saveEditExpense(e.id)} style={styles.editSaveButton}>
-                    <Text style={styles.editSaveText}>Save</Text>
+                  <Pressable onPress={() => saveEditExpense(e.id)} disabled={isSavingEdit} style={[styles.editSaveButton, isSavingEdit && { opacity: 0.6 }]}>
+                    <Text style={styles.editSaveText}>{isSavingEdit ? 'Saving...' : 'Save'}</Text>
                   </Pressable>
                   <Pressable onPress={cancelEditExpense} style={styles.iconButton}>
                     <Ionicons name="close" size={15} color={colors.text} />

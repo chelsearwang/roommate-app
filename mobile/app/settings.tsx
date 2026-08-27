@@ -11,6 +11,7 @@ import { colors, radius, shadow } from '@/constants/colors';
 import * as Clipboard from 'expo-clipboard';
 import { Share } from 'react-native';
 import { router } from 'expo-router';
+import { LoadingScreen } from '@/components/LoadingScreen';
 
 type Member = { id: string; name: string; avatarEmoji: string };
 
@@ -25,6 +26,8 @@ export default function SettingsScreen() {
   const [copied, setCopied] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSavingName, setIsSavingName] = useState(false);
   // const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
   // const [deleteAccountText, setDeleteAccountText] = useState('');
 
@@ -40,18 +43,23 @@ export default function SettingsScreen() {
       setAvatarEmoji(meData.user.avatarEmoji);
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setIsLoading(false);
     }
   }, [token]);
 
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   async function saveName() {
+    setIsSavingName(true);
     try {
       await apiRequest('/households/rename', { method: 'PATCH', body: JSON.stringify({ name: householdName }) }, token!);
       await refreshUser();
       setEditingName(false);
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setIsSavingName(false);
     }
   }
   
@@ -154,6 +162,10 @@ export default function SettingsScreen() {
     }
   }
 
+  if (isLoading) {
+    return <LoadingScreen message="Loading settings..." />;
+  }
+
   return (
     <>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -176,8 +188,8 @@ export default function SettingsScreen() {
           <>
             <TextInput style={styles.input} value={householdName} onChangeText={setHouseholdName} />
             <View style={styles.editRow}>
-              <Pressable onPress={saveName} style={styles.saveEditButton}>
-                <Text style={styles.saveEditText}>Save</Text>
+              <Pressable onPress={saveName} disabled={isSavingName} style={[styles.saveEditButton, isSavingName && { opacity: 0.6 }]}>
+                <Text style={styles.saveEditText}>{isSavingName ? 'Saving...' : 'Save'}</Text>
               </Pressable>
               <Pressable onPress={() => setEditingName(false)} style={styles.iconButton}>
                 <Ionicons name="close" size={15} color={colors.text} />
