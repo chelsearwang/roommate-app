@@ -113,7 +113,7 @@ export default function ChoresScreen() {
   const [assignmentMode, setAssignmentMode] = useState<'rotating' | 'fixed'>('rotating');
   const [fixedAssigneeId, setFixedAssigneeId] = useState<string | null>(null);
 
-  const [editingChoreId, setEditingChoreId] = useState<string | null>(null);
+  const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editWeight, setEditWeight] = useState(1);
   const [editFrequency, setEditFrequency] = useState<typeof FREQUENCIES[number]>('weekly');
@@ -233,8 +233,8 @@ export default function ChoresScreen() {
     }
   }
 
-  function startEdit(chore: Chore) {
-    setEditingChoreId(chore.id);
+  function startEdit(chore: Chore, assignmentId: string) {
+    setEditingAssignmentId(assignmentId);
     setEditName(chore.name);
     setEditWeight(chore.weight);
     if (chore.type === 'recurring') {
@@ -262,7 +262,7 @@ export default function ChoresScreen() {
   }
 
   function cancelEdit() {
-    setEditingChoreId(null);
+    setEditingAssignmentId(null);
   }
 
   async function saveEdit(chore: Chore) {
@@ -286,7 +286,7 @@ export default function ChoresScreen() {
       }
       await apiRequest(`/chores/${chore.id}`, { method: 'PATCH', body: JSON.stringify(body) }, token!);
       await loadData();
-      setEditingChoreId(null);
+      setEditingAssignmentId(null);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -476,7 +476,7 @@ export default function ChoresScreen() {
               const isMine = assignment.userId === user?.id;
               const isOverdue = assignment.status === 'overdue';
               const isDone = assignment.status === 'done';
-              const isEditing = editingChoreId === chore.id;
+              const isEditing = editingAssignmentId === assignment.id;
               const wMeta = weightMeta(chore.weight);
               const isOneTime = chore.type === 'one_time';
               const isFixed = chore.type === 'recurring' && chore.assignmentMode === 'fixed';
@@ -636,7 +636,7 @@ export default function ChoresScreen() {
                           <Text style={styles.nudgeText}>Nudge</Text>
                         </Pressable>
                       )}
-                      <Pressable onPress={() => startEdit(chore)} style={styles.iconButton}>
+                      <Pressable onPress={() => startEdit(chore, assignment.id)} style={styles.iconButton}>
                         <Ionicons name="create-outline" size={15} color={colors.blue} />
                       </Pressable>
                       <Pressable onPress={() => handleDelete(chore.id, chore.name)} style={[styles.iconButton, styles.iconButtonDanger]}>

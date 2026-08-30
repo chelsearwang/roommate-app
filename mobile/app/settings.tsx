@@ -28,6 +28,8 @@ export default function SettingsScreen() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingName, setIsSavingName] = useState(false);
+  const [isDeletingHousehold, setIsDeletingHousehold] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   // const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
   // const [deleteAccountText, setDeleteAccountText] = useState('');
 
@@ -145,11 +147,13 @@ export default function SettingsScreen() {
   });
 
   async function handleDeleteHousehold() {
+    setIsDeletingHousehold(true);
     try {
       await apiRequest('/households', { method: 'DELETE' }, token!);
       await refreshUser();
     } catch (err: any) {
       setError(err.message);
+      setIsDeletingHousehold(false);
     }
   }
 
@@ -164,6 +168,11 @@ export default function SettingsScreen() {
 
   if (isLoading) {
     return <LoadingScreen message="Loading settings..." />;
+  }
+
+  function handleLogout() {
+    setIsLoggingOut(true);
+    logout();
   }
 
   return (
@@ -231,7 +240,7 @@ export default function SettingsScreen() {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <CozyButton title="Log out" onPress={logout} />
+      <CozyButton title={isLoggingOut ? 'Logging out...' : 'Log out'} onPress={handleLogout} />
       <CozyButton title="Leave household" variant="secondary" onPress={handleLeave} />
 
       <CozyButton title="Delete household" variant="danger" onPress={() => setShowDeleteConfirm(true)} />
@@ -275,10 +284,10 @@ export default function SettingsScreen() {
             <View style={styles.editRow}>
               <Pressable
                 onPress={handleDeleteHousehold}
-                disabled={deleteConfirmText !== householdName}
-                style={[styles.deleteConfirmButton, deleteConfirmText !== householdName && styles.deleteConfirmButtonDisabled]}
+                disabled={isDeletingHousehold || deleteConfirmText !== householdName}
+                style={[styles.deleteConfirmButton, (isDeletingHousehold || deleteConfirmText !== householdName) && styles.deleteConfirmButtonDisabled]}
               >
-                <Text style={styles.deleteConfirmButtonText}>Permanently delete</Text>
+                <Text style={styles.deleteConfirmButtonText}>{isDeletingHousehold ? 'Deleting...' : 'Permanently delete'}</Text>
               </Pressable>
               <Pressable onPress={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); }} style={styles.iconButton}>
                 <Ionicons name="close" size={15} color={colors.text} />

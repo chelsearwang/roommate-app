@@ -725,10 +725,16 @@ app.get('/chores', requireAuth, async (req, res) => {
 
   const chores = await prisma.chore.findMany({ where: { householdId: currentUser.householdId } });
 
+  /*
   for (const chore of chores) {
     await ensureAssignmentsUpToDate(chore);
     await sendOverdueReminders(chore);
-  }
+  } */
+  // try paralellizing chores loop
+  await Promise.all(chores.map(async (chore) => {
+    await ensureAssignmentsUpToDate(chore);
+    await sendOverdueReminders(chore);
+  }));
 
   const choresWithOverdue = await prisma.chore.findMany({
     where: { householdId: currentUser.householdId },

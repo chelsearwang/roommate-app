@@ -16,6 +16,8 @@ export default function HouseholdScreen() {
   const { token, user, refreshUser, logout } = useAuth();
   const [isCreatingHousehold, setIsCreatingHousehold] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   /*
   async function handleCreate() {
@@ -74,10 +76,12 @@ export default function HouseholdScreen() {
   }
 
   async function handleDeleteAccount() {
+    setIsDeletingAccount(true);
     try {
       await apiRequest('/me', { method: 'DELETE' }, token!);
       logout();
     } catch (err: any) {
+      setIsDeletingAccount(false);
       setShowDeleteAccountConfirm(false);
       setDeleteAccountText('');
       if (Platform.OS === 'web') {
@@ -86,6 +90,11 @@ export default function HouseholdScreen() {
         Alert.alert('Unable to delete account', err.message);
       }
     }
+  }
+
+  function handleLogout() {
+    setIsLoggingOut(true);
+    logout();
   }
 
   return (
@@ -120,9 +129,9 @@ export default function HouseholdScreen() {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <View style={styles.accountOptionsRow}>
-        <Pressable onPress={logout} style={styles.accountOptionPill}>
+        <Pressable onPress={handleLogout} style={styles.accountOptionPill} disabled={isLoggingOut}>
           <Ionicons name="log-out-outline" size={15} color={colors.text} style={{ opacity: 0.7 }} />
-          <Text style={styles.accountOptionText}>Sign out</Text>
+          <Text style={styles.accountOptionText}>{isLoggingOut ? 'Signing out...' : 'Sign out'}</Text>
         </Pressable>
         <Pressable onPress={() => setShowDeleteAccountConfirm(true)} style={[styles.accountOptionPill, styles.deleteAccountPill]}>
           <Ionicons name="trash-outline" size={15} color={colors.coral} />
@@ -163,10 +172,10 @@ export default function HouseholdScreen() {
             </Pressable>
             <Pressable
               onPress={handleDeleteAccount}
-              disabled={deleteAccountText !== 'DELETE'}
-              style={[styles.deleteConfirmButton, deleteAccountText !== 'DELETE' && styles.deleteConfirmButtonDisabled]}
+              disabled={isDeletingAccount || deleteAccountText !== 'DELETE'}
+              style={[styles.deleteConfirmButton, (isDeletingAccount || deleteAccountText !== 'DELETE') && styles.deleteConfirmButtonDisabled]}
             >
-              <Text style={styles.deleteConfirmButtonText}>Permanently delete</Text>
+              <Text style={styles.deleteConfirmButtonText}>{isDeletingAccount ? 'Deleting...' : 'Permanently delete'}</Text>
             </Pressable>
           </View>
         </View>
