@@ -11,10 +11,10 @@ A full-stack mobile app that helps roommates coordinate chores, split expenses, 
 
 ## What it does
 
-- **Chores** — recurring or one-time, split fairly via automatic rotation *or* pinned permanently to one person; custom recurrence like "the 3rd Friday of every month"; overdue tracking that keeps a missed chore visible until it's actually resolved
+- **Chores** — recurring or one-time, split fairly via automatic rotation *or* assigned to one specific person; custom recurrence like "the 3rd Friday of every month"; overdue tracking that keeps a missed chore visible until it's actually resolved
 - **Expenses** — log shared costs, automatic even-split, and a debt-simplification algorithm that finds the minimum number of payments needed to settle up the whole household
 - **Announcements** — a shared household bulletin board, with pinning and resolution tracking
-- **Gamification** — XP, levels, and a household-wide streak to make chores feel less like a chore
+- **Gamification** — a shared plant that reflects how the household's actually doing (thriving to wilted, based on completed vs. overdue chores)
 - **Real authentication** — Google Sign-In, working natively on iOS and Android, and via a custom web OAuth flow in the browser
 - **In-app notifications** — nudges, overdue reminders, chore-completed alerts, and new-member notifications
 
@@ -54,7 +54,7 @@ Calendar-recurrence math, XP leveling, and the debt-simplification logic are all
 ├── backend/
 │   ├── src/
 │   │   ├── index.js       # Express routes
-│   │   └── lib/           # Pure, tested business logic
+│   │   └── lib/           # Tested logic
 │   │       ├── dates.js
 │   │       ├── gamification.js
 │   │       └── settleUp.js
@@ -64,16 +64,15 @@ Calendar-recurrence math, XP leveling, and the debt-simplification logic are all
     ├── app/                # Expo Router screens
     ├── components/
     ├── context/             # Auth state
-    └── constants/           # Design system (colors, spacing)
+    └── constants/           # Design stuff (colors, etc.)
 ```
 
 ---
 
 ## Known Limitations & Future Improvements
 
-- In-app notifications (nudges, overdue reminders, completion alerts) — fully working
+- In-app notifications (nudges, overdue reminders, completion alerts) currently work
 - Native OS push notifications — planned
 - Real-time updates (WebSockets) — currently refreshes when a screen is opened, not push-based
-- Migrating auth to a managed service (Supabase) for real token refresh — current JWTs expire after 7 days with no renewal
-- Accessibility pass (screen-reader labels on icon-only buttons)
-- Dark mode — a full color palette is designed and ready, not yet wired to a theme toggle
+- Migrating auth to a managed service (Supabase)
+- Accessibility and dark mode features
