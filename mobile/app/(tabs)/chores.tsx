@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { View, Text, TextInput, ScrollView, Pressable, StyleSheet, Alert, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, ScrollView, Pressable, StyleSheet, Alert, Platform, ActivityIndicator, Modal } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '@/context/AuthContext';
@@ -99,7 +99,7 @@ export default function ChoresScreen() {
   const [feedback, setFeedback] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
-  const [completingId, setCompletingId] = useState<string | null>(null);
+  const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const [choreType, setChoreType] = useState<'recurring' | 'one_time'>('recurring');
@@ -122,6 +122,7 @@ export default function ChoresScreen() {
   const [editDueDate, setEditDueDate] = useState('');
   const [editAssigneeId, setEditAssigneeId] = useState<string | null>(null);
   const [editAssignmentMode, setEditAssignmentMode] = useState<'rotating' | 'fixed'>('rotating');
+  const [deleteChoiceFor, setDeleteChoiceFor] = useState<{ assignmentId: string; choreId: string; choreName: string } | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -212,14 +213,18 @@ export default function ChoresScreen() {
   } */
 
   async function handleComplete(assignmentId: string) {
-    setCompletingId(assignmentId);
+    setCompletingIds((prev) => new Set(prev).add(assignmentId));
     try {
       await apiRequest(`/assignments/${assignmentId}/complete`, { method: 'PATCH' }, token!);
       await loadData();
     } catch (err: any) {
       setError(err.message);
     } finally {
-      setCompletingId(null);
+      setCompletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(assignmentId);
+        return next;
+      });
     }
   }
 
@@ -314,22 +319,28 @@ export default function ChoresScreen() {
     }
   } */
 
-  function handleDelete(choreId: string, choreName: string) {
-    const performDelete = () => {
-      setChores((prev) => prev.filter((c) => c.id !== choreId));
-      apiRequest(`/chores/${choreId}`, { method: 'DELETE' }, token!).catch((err) => {
+  function handleDeleteAssignment(assignmentId: string) {
+    setDeleteChoiceFor(null);
+    setChores((prev) => prev.map((c) => ({
+      ...c,
+      assignments: c.assignments.filter((a) => a.id !== assignmentId),
+    })));
+    apiRequest(`/assignments/${assignmentId}`, { method: 'DELETE' }, token!)
+      .then(() => loadData())
+      .catch((err) => {
         setError(err.message);
         loadData();
       });
-    };
-    if (Platform.OS === 'web') {
-      if (window.confirm(`Delete "${choreName}"? This removes it and its history for everyone. This can't be undone.`)) performDelete();
-    } else {
-      Alert.alert('Delete chore?', `This removes "${choreName}" and its history for everyone. This can't be undone.`, [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: performDelete },
-      ]);
-    }
+  }
+
+  function handleDeleteChore(choreId: string) {
+    setDeleteChoiceFor(null);
+    setEditingAssignmentId(null);
+    setChores((prev) => prev.filter((c) => c.id !== choreId));
+    apiRequest(`/chores/${choreId}`, { method: 'DELETE' }, token!).catch((err) => {
+      setError(err.message);
+      loadData();
+    });
   }
 
   const people = groupByPerson(chores, members);
@@ -615,10 +626,10 @@ export default function ChoresScreen() {
                       ) : isMine ? (
                         <Pressable
                           onPress={() => handleComplete(assignment.id)}
-                          disabled={completingId === assignment.id}
-                          style={[styles.markDoneButton, completingId === assignment.id && { opacity: 0.6 }]}
+                          disabled={completingIds.has(assignment.id)}
+                          style={[styles.markDoneButton, completingIds.has(assignment.id) && { opacity: 0.6 }]}
                         >
-                          {completingId === assignment.id ? (
+                          {completingIds.has(assignment.id) ? (
                             <>
                               <ActivityIndicator size="small" color={colors.sage} />
                               <Text style={styles.markDoneText}>Completing...</Text>
@@ -639,7 +650,10 @@ export default function ChoresScreen() {
                       <Pressable onPress={() => startEdit(chore, assignment.id)} style={styles.iconButton}>
                         <Ionicons name="create-outline" size={15} color={colors.blue} />
                       </Pressable>
-                      <Pressable onPress={() => handleDelete(chore.id, chore.name)} style={[styles.iconButton, styles.iconButtonDanger]}>
+                      <Pressable
+                        onPress={() => setDeleteChoiceFor({ assignmentId: assignment.id, choreId: chore.id, choreName: chore.name })}
+                        style={[styles.iconButton, styles.iconButtonDanger]}
+                      >
                         <Ionicons name="trash-outline" size={15} color={colors.coral} />
                       </Pressable>
                     </View>
@@ -650,6 +664,40 @@ export default function ChoresScreen() {
           </View>
         ))}
       </ScrollView>
+      <Modal
+        visible={!!deleteChoiceFor}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteChoiceFor(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setDeleteChoiceFor(null)} />
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Delete "{deleteChoiceFor?.choreName}"</Text>
+            <Text style={styles.modalSubtext}>What would you like to delete?</Text>
+
+            <Pressable
+              onPress={() => deleteChoiceFor && handleDeleteAssignment(deleteChoiceFor.assignmentId)}
+              style={styles.modalOptionButton}
+            >
+              <Text style={styles.modalOptionTitle}>Just this occurrence</Text>
+              <Text style={styles.modalOptionSubtext}>Removes only this one instance. The chore keeps recurring normally.</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => deleteChoiceFor && handleDeleteChore(deleteChoiceFor.choreId)}
+              style={[styles.modalOptionButton, styles.modalOptionButtonDanger]}
+            >
+              <Text style={[styles.modalOptionTitle, { color: colors.coral }]}>Entire chore, forever</Text>
+              <Text style={styles.modalOptionSubtext}>Removes every occurrence and its full history for everyone. Can't be undone.</Text>
+            </Pressable>
+
+            <Pressable onPress={() => setDeleteChoiceFor(null)} style={styles.modalCancelButton}>
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -699,4 +747,14 @@ const styles = StyleSheet.create({
   iconButtonDanger: { backgroundColor: colors.coralTint },
   nudgeButton: { backgroundColor: colors.coralTint },
   nudgeText: { color: colors.coral, fontWeight: '700', fontSize: 13 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalCard: { backgroundColor: colors.card, borderRadius: radius.lg, padding: 20, width: '100%', maxWidth: 400 },
+  modalTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 4 },
+  modalSubtext: { fontSize: 13, color: colors.text, opacity: 0.6, marginBottom: 16 },
+  modalOptionButton: { backgroundColor: colors.background, borderRadius: radius.md, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: colors.border },
+  modalOptionButtonDanger: { borderColor: colors.coral, backgroundColor: colors.coralTint },
+  modalOptionTitle: { fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: 3 },
+  modalOptionSubtext: { fontSize: 12, color: colors.text, opacity: 0.6, lineHeight: 16 },
+  modalCancelButton: { alignItems: 'center', paddingVertical: 10, marginTop: 4 },
+  modalCancelText: { color: colors.text, opacity: 0.6, fontWeight: '600', fontSize: 14 },
 });

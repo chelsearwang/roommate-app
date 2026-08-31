@@ -1,8 +1,9 @@
 require('dotenv').config();
 
-const { getNthWeekdayOfMonth, endOfDay, parseLocalDate, getNextMonthlyDueDate, getFirstMonthlyDueDate, getOccurrenceOfWeekday, getNextWeekdayOnOrAfter } = require('./lib/dates');
-const { calculateAvatarLevel } = require('./lib/gamification');
+const { getNthWeekdayOfMonth, endOfDay, parseLocalDate, getNextMonthlyDueDate, getFirstMonthlyDueDate, getOccurrenceOfWeekday, getNextWeekdayOnOrAfter, getStartOfMonth, getEndOfMonth } = require('./lib/dates');
+// const { calculateAvatarLevel } = require('./lib/gamification');
 const { simplifyDebts } = require('./lib/settleUp');
+const { calculatePlantHealth } = require('./lib/plantHealth');
 
 const express = require('express');
 const jwt = require('jsonwebtoken');
@@ -117,7 +118,7 @@ function requireAuth(req, res, next) {
 // Rotation tracked per-chore, cycling through household members in join order
 // ============================================================
 const FREQUENCY_DAYS = { daily: 1, weekly: 7, biweekly: 14, monthly: 30 };
-const XP_PER_WEIGHT = 10;
+// const XP_PER_WEIGHT = 10;
 
 // db passed in explicitly so this same func works both standalone and inside a $transaction
 async function getNextAssignee(db, choreId, householdId) {
@@ -146,16 +147,10 @@ async function ensureAssignmentsUpToDate(chore) {
   if (chore.type === 'one_time') {
     const assignment = await prisma.assignment.findFirst({ where: { choreId: chore.id } });
     if (assignment && assignment.dueDate < new Date() && !assignment.completedAt && assignment.status !== 'overdue') {
-      const penalty = chore.weight * XP_PER_WEIGHT;
       await prisma.$transaction(async (tx) => {
         await tx.assignment.update({ where: { id: assignment.id }, data: { status: 'overdue' } });
-        const missedUser = await tx.user.findUnique({ where: { id: assignment.userId } });
-        const newXp = Math.max(0, missedUser.xp - penalty);
-        const newLevel = Math.max(missedUser.avatarLevel, calculateAvatarLevel(newXp));
-        await tx.user.update({ where: { id: assignment.userId }, data: { xp: newXp, avatarLevel: newLevel } });
-        await tx.household.update({ where: { id: chore.householdId }, data: { streakCount: 0 } });
         await tx.notification.create({
-          data: { userId: assignment.userId, type: 'chore_overdue', content: `You missed "${chore.name}" — lost ${penalty} XP` },
+          data: { userId: assignment.userId, type: 'chore_overdue', content: `You missed "${chore.name}"` },
         });
       });
     }
@@ -171,18 +166,11 @@ async function ensureAssignmentsUpToDate(chore) {
 
   while (latest && latest.dueDate < new Date()) {
     if (!latest.completedAt && latest.status !== 'overdue') {
-      const penalty = chore.weight * XP_PER_WEIGHT;
       const missedUserId = latest.userId;
-
       await prisma.$transaction(async (tx) => {
         await tx.assignment.update({ where: { id: latest.id }, data: { status: 'overdue' } });
-        const missedUser = await tx.user.findUnique({ where: { id: missedUserId } });
-        const newXp = Math.max(0, missedUser.xp - penalty);
-        const newLevel = Math.max(missedUser.avatarLevel, calculateAvatarLevel(newXp));
-        await tx.user.update({ where: { id: missedUserId }, data: { xp: newXp, avatarLevel: newLevel } });
-        await tx.household.update({ where: { id: chore.householdId }, data: { streakCount: 0 } });
         await tx.notification.create({
-          data: { userId: missedUserId, type: 'chore_overdue', content: `You missed "${chore.name}" — lost ${penalty} XP` },
+          data: { userId: missedUserId, type: 'chore_overdue', content: `You missed "${chore.name}"` },
         });
       });
     }
@@ -382,22 +370,38 @@ app.get('/households/stats', requireAuth, async (req, res) => {
   if (!currentUser.householdId) {
     return res.status(400).json({ error: 'You must join a household first' });
   }
-
+  const householdId = currentUser.householdId;
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
   const completedThisWeek = await prisma.assignment.count({
-    where: {
-      status: 'done',
-      completedAt: { gte: sevenDaysAgo },
-      chore: { householdId: currentUser.householdId },
-    },
+    where: { status: 'done', completedAt: { gte: sevenDaysAgo }, chore: { householdId } },
   });
 
   const householdOverdueCount = await prisma.assignment.count({
-    where: { status: 'overdue', chore: { householdId: currentUser.householdId } },
+    where: { status: 'overdue', chore: { householdId } },
   });
 
-  res.json({ completedThisWeek, householdOverdueCount });
+  // const totalActiveChores = await prisma.chore.count({ where: { householdId } });
+
+  const household = await prisma.household.findUnique({ where: { id: householdId } });
+  const plantHealth = calculatePlantHealth(completedThisWeek, householdOverdueCount);
+
+  const members = await prisma.user.findMany({ where: { householdId }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
+  
+  const monthStart = getStartOfMonth(new Date());
+  const monthEnd = getEndOfMonth(new Date());
+
+    const memberBreakdown = await Promise.all(members.map(async (member) => {
+    const assignmentsThisMonth = await prisma.assignment.findMany({
+      where: { userId: member.id, dueDate: { gte: monthStart, lte: monthEnd } },
+      select: { status: true },
+    });
+    const dueThisMonth = assignmentsThisMonth.length;
+    const completedThisMonth = assignmentsThisMonth.filter((a) => a.status === 'done').length;
+    return { userId: member.id, name: member.name, avatarEmoji: member.avatarEmoji, dueThisMonth, completedThisMonth };
+  }));
+
+  res.json({ completedThisWeek, householdOverdueCount, plantHealth, plantType: household.plantType, memberBreakdown, monthStart, monthEnd });
 });
 
 app.get('/households/members', requireAuth, async (req, res) => {
@@ -522,6 +526,22 @@ app.delete('/households', requireAuth, async (req, res) => {
   ]);
 
   res.json({ deleted: true });
+});
+
+app.patch('/households/plant-type', requireAuth, async (req, res) => {
+  const { plantType } = req.body;
+  if (!plantType) {
+    return res.status(400).json({ error: 'plantType is required' });
+  }
+  const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!currentUser.householdId) {
+    return res.status(400).json({ error: 'You must join a household first' });
+  }
+  const household = await prisma.household.update({
+    where: { id: currentUser.householdId },
+    data: { plantType },
+  });
+  res.json({ household });
 });
 
 // ============================================================
@@ -782,6 +802,36 @@ app.delete('/chores/:id', requireAuth, async (req, res) => {
 
   res.json({ deleted: true });
 });
+
+app.delete('/assignments/:id', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+  const assignment = await prisma.assignment.findUnique({ where: { id }, include: { chore: true } });
+
+  if (!assignment) {
+    return res.status(404).json({ error: 'Assignment not found' });
+  }
+  if (assignment.chore.householdId !== currentUser.householdId) {
+    return res.status(403).json({ error: 'This chore is not in your household' });
+  }
+
+  if (assignment.chore.type === 'one_time') {
+    // a one-time chore only has one assignment — deleting it means deleting the whole chore
+    await prisma.chore.delete({ where: { id: assignment.choreId } });
+    return res.json({ deleted: true });
+  }
+
+  const latest = await prisma.assignment.findFirst({
+    where: { choreId: assignment.choreId },
+    orderBy: { dueDate: 'desc' },
+  });
+  if (latest.id === assignment.id) {
+    return res.status(400).json({ error: 'Cannot delete the current active occurrence — delete the whole chore instead if you want to stop it entirely.' });
+  }
+
+  await prisma.assignment.delete({ where: { id } });
+  res.json({ deleted: true });
+});
 // ============================================================
 // ROUTES — assignments (mark complete)
 // Requires both authentication (valid token) AND authorization
@@ -789,19 +839,13 @@ app.delete('/chores/:id', requireAuth, async (req, res) => {
 app.patch('/assignments/:id/complete', requireAuth, async (req, res) => {
   const { id } = req.params;
 
-  const assignment = await prisma.assignment.findUnique({
-    where: { id },
-    include: { chore: true },
-  });
+  const assignment = await prisma.assignment.findUnique({ where: { id }, include: { chore: true } });
   if (!assignment) {
     return res.status(404).json({ error: 'Assignment not found' });
   }
   if (assignment.userId !== req.userId) {
     return res.status(403).json({ error: 'This assignment is not yours' });
   }
-
-  const wasOnTime = assignment.status !== 'overdue';
-  const xpEarned = assignment.chore.weight * XP_PER_WEIGHT;
 
   const result = await prisma.$transaction(async (tx) => {
     const updatedAssignment = await tx.assignment.update({
@@ -810,17 +854,6 @@ app.patch('/assignments/:id/complete', requireAuth, async (req, res) => {
     });
 
     const user = await tx.user.findUnique({ where: { id: req.userId } });
-    const newXp = user.xp + xpEarned;
-    const newLevel = Math.max(user.avatarLevel, calculateAvatarLevel(newXp));
-    const updatedUser = await tx.user.update({
-      where: { id: req.userId },
-      data: { xp: newXp, avatarLevel: newLevel },
-    });
-
-    await tx.household.update({
-      where: { id: assignment.chore.householdId },
-      data: wasOnTime ? { streakCount: { increment: 1 } } : { streakCount: 0 },
-    });
 
     const householdMembers = await tx.user.findMany({
       where: { householdId: assignment.chore.householdId, id: { not: req.userId } },
@@ -828,15 +861,11 @@ app.patch('/assignments/:id/complete', requireAuth, async (req, res) => {
 
     await Promise.all(householdMembers.map((member) =>
       tx.notification.create({
-        data: {
-          userId: member.id,
-          type: 'chore_completed',
-          content: `${user.name} completed "${assignment.chore.name}" ✅`,
-        },
+        data: { userId: member.id, type: 'chore_completed', content: `${user.name} completed "${assignment.chore.name}" ✅` },
       })
     ));
 
-    return { assignment: updatedAssignment, user: updatedUser, xpEarned };
+    return { assignment: updatedAssignment };
   });
 
   res.json(result);

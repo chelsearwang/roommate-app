@@ -15,11 +15,11 @@ model Household {
   id            String   @id @default(uuid())
   name          String
   inviteCode    String   @unique
-  streakCount   Int      @default(0)
   users         User[]
   chores        Chore[]
   announcements Announcement[]
   expenses      Expense[]
+  plantType String @default("default")
 }
 
 model User {
@@ -27,8 +27,6 @@ model User {
   googleId      String   @unique
   email         String   @unique
   name          String
-  xp            Int      @default(0)
-  avatarLevel   Int      @default(1)
   createdAt     DateTime @default(now())
   household     Household? @relation(fields: [householdId], references: [id])
   householdId   String?

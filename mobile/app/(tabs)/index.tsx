@@ -6,7 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '@/context/AuthContext';
 import { apiRequest } from '@/utils/api';
-import { GamificationBar } from '@/components/GamificationBar';
+// import { GamificationBar } from '@/components/GamificationBar';
+import { PlantHealthCard } from '@/components/PlantHealthCard';
 import { formatRelativeTime } from '@/utils/time';
 import { colors, radius, shadow } from '@/constants/colors';
 import { LoadingScreen } from '@/components/LoadingScreen';
@@ -15,8 +16,8 @@ import { Share } from 'react-native';
 
 type Announcement = { id: string; content: string; pinned: boolean; resolved: boolean; createdAt: string; author?: { name: string } };
 type Chore = { id: string; assignments: { userId: string; status: string }[] };
-type MeData = { xp: number; avatarLevel: number; name: string; household?: { streakCount: number; name: string; inviteCode: string } };
-type Stats = { completedThisWeek: number; householdOverdueCount: number };
+type MeData = { name: string; household?: { name: string; inviteCode: string } };
+type Stats = { completedThisWeek: number; householdOverdueCount: number; plantHealth: string; plantType: string; monthStart: string; monthEnd: string; memberBreakdown: { userId: string; name: string; avatarEmoji: string; dueThisMonth: number; completedThisMonth: number }[] };
 type Transaction = { from: string; to: string; amount: number };
 type NotificationItem = { id: string; content: string };
 
@@ -62,9 +63,9 @@ export default function DashboardScreen() {
 
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
-  const myOverdueCount = chores.filter((c) =>
-    c.assignments.some((a) => a.userId === user?.id && a.status === 'overdue')
-  ).length;
+  const myOverdueCount = chores.reduce((count, c) =>
+    count + c.assignments.filter((a) => a.userId === user?.id && a.status === 'overdue').length
+  , 0);
 
   const myPendingCount = chores.filter((c) => {
     const a = c.assignments[0];
@@ -113,6 +114,15 @@ export default function DashboardScreen() {
     }
   }
 
+  async function handleChangePlantType(plantType: string) {
+    try {
+      await apiRequest('/households/plant-type', { method: 'PATCH', body: JSON.stringify({ plantType }) }, token!);
+      setStats((prev) => (prev ? { ...prev, plantType } : prev));
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }
+
   if (isLoading) {
     return (
       <LoadingScreen
@@ -148,14 +158,15 @@ export default function DashboardScreen() {
         </View>
       )}
 
-      {meData && (
-        <GamificationBar
-          name={meData.name}
-          avatarEmoji={meData.avatarEmoji}
-          xp={meData.xp}
-          avatarLevel={meData.avatarLevel}
-          streakCount={meData.household?.streakCount ?? 0}
-          overdueCount={myOverdueCount}
+      {stats && meData && (
+        <PlantHealthCard
+          userName={meData.name}
+          plantHealth={stats.plantHealth}
+          plantType={stats.plantType}
+          memberBreakdown={stats.memberBreakdown}
+          monthStart={stats.monthStart}
+          monthEnd={stats.monthEnd}
+          onChangePlantType={handleChangePlantType}
         />
       )}
 

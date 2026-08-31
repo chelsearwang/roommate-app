@@ -53,7 +53,35 @@ function getNextWeekdayOnOrAfter(startDate, weekday) {
   return result;
 }
 
+function getStartOfWeek(date) {
+  const d = new Date(date);
+  const day = d.getDay(); // 0 = Sunday
+  d.setDate(d.getDate() - day);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function getEndOfWeek(date) {
+  const start = getStartOfWeek(date);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+  return end;
+}
+
+function getStartOfMonth(date) {
+  const d = new Date(date.getFullYear(), date.getMonth(), 1);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function getEndOfMonth(date) {
+  const d = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
 module.exports = {
   getNthWeekdayOfMonth, endOfDay, parseLocalDate, getNextMonthlyDueDate,
-  getFirstMonthlyDueDate, getOccurrenceOfWeekday, getNextWeekdayOnOrAfter,
+  getFirstMonthlyDueDate, getOccurrenceOfWeekday, getNextWeekdayOnOrAfter, getStartOfWeek, getEndOfWeek, getStartOfMonth, getEndOfMonth,
 };
