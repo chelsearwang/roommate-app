@@ -7,11 +7,11 @@ import { colors, radius, shadow } from '../constants/colors';
 type Props = {
   eyebrow: string;
   title: string;
-  emoji?: string;
+  icon: keyof typeof Ionicons.glyphMap;
   rightAction?: { label: string; onPress: () => void };
 };
 
-export function ScreenHeader({ eyebrow, title, emoji, rightAction }: Props) {
+export function ScreenHeader({ eyebrow, title, icon, rightAction }: Props) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -30,8 +30,15 @@ export function ScreenHeader({ eyebrow, title, emoji, rightAction }: Props) {
         )}
       </View>
 
-      <Text style={styles.eyebrow}>{eyebrow}</Text>
-      <Text style={styles.title}>{title} {emoji}</Text>
+      <View style={styles.headerContentRow}>
+        <View style={styles.iconBadge}>
+          <Ionicons name={icon} size={22} color={colors.blue} />
+        </View>
+        <View>
+          <Text style={styles.eyebrow}>{eyebrow}</Text>
+          <Text style={styles.title}>{title}</Text>
+        </View>
+      </View>
     </View>
   );
 }
@@ -47,6 +54,8 @@ const styles = StyleSheet.create({
     ...shadow,
   },
   actionText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  headerContentRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  iconBadge: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
   eyebrow: { fontSize: 12, fontWeight: '700', color: colors.text, opacity: 0.5, letterSpacing: 1, marginBottom: 2 },
   title: { fontSize: 26, fontWeight: 'bold', color: colors.text },
 });

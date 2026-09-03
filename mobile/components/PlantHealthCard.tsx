@@ -1,27 +1,26 @@
-import { useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Image, StyleSheet } from 'react-native';
 import { colors, radius, shadow } from '../constants/colors';
 
-const PLANT_STAGES: Record<string, { emoji: string; label: string }> = {
-  wilted: { emoji: '🥀', label: 'Wilting — needs attention' },
-  struggling: { emoji: '🌱', label: 'Struggling' },
-  healthy: { emoji: '🪴', label: 'Healthy' },
-  thriving: { emoji: '🌻', label: 'Thriving!' },
+const PLANT_IMAGES: Record<string, any> = {
+  wilted: require('../assets/images/plant-wilted.png'),
+  struggling: require('../assets/images/plant-struggling.png'),
+  healthy: require('../assets/images/plant-healthy.png'),
+  thriving: require('../assets/images/plant-thriving.png'),
+};
+
+const HEALTH_LABELS: Record<string, string> = {
+  wilted: 'Wilting',
+  struggling: 'Struggling',
+  healthy: 'Healthy',
+  thriving: 'Thriving!',
 };
 
 const HEALTH_MESSAGES: Record<string, string> = {
-  thriving: 'Your plant is thriving! Tap to change it 🌟',
-  healthy: 'Your plant is healthy. Tap to change it',
-  struggling: 'Your plant is struggling — complete some chores!',
-  wilted: 'Your plant is wilting — complete more chores to help it recover!',
+  thriving: 'Your household plant is thriving! 🌟',
+  healthy: 'Your household plant is healthy.',
+  struggling: 'Your household plant is struggling — complete some chores!',
+  wilted: 'Your household plant is wilting — complete more chores to help it recover!',
 };
-
-const PLANT_TYPES = [
-  { value: 'default', emoji: '🪴', label: 'Classic' },
-  { value: 'succulent', emoji: '🌵', label: 'Succulent' },
-  { value: 'flower', emoji: '🌸', label: 'Flower' },
-  { value: 'fern', emoji: '🌿', label: 'Fern' },
-];
 
 function formatMonthRange(startISO: string, endISO: string): string {
   const start = new Date(startISO);
@@ -35,42 +34,26 @@ type MemberBreakdown = { userId: string; name: string; avatarEmoji: string; dueT
 type Props = {
   userName: string;
   plantHealth: string;
-  plantType: string;
   memberBreakdown: MemberBreakdown[];
   monthStart: string;
   monthEnd: string;
-  onChangePlantType: (type: string) => void;
 };
 
-export function PlantHealthCard({ userName, plantHealth, plantType, memberBreakdown, monthStart, monthEnd, onChangePlantType }: Props) {
-  const [showPicker, setShowPicker] = useState(false);
-  const stage = PLANT_STAGES[plantHealth] || PLANT_STAGES.healthy;
+export function PlantHealthCard({ userName, plantHealth, memberBreakdown, monthStart, monthEnd }: Props) {
   const healthMessage = HEALTH_MESSAGES[plantHealth] || HEALTH_MESSAGES.healthy;
+  const plantImage = PLANT_IMAGES[plantHealth] || PLANT_IMAGES.healthy;
 
   return (
     <View style={styles.card}>
-      <Pressable style={styles.plantRow} onPress={() => setShowPicker(!showPicker)}>
-        <Text style={styles.plantEmoji}>{stage.emoji}</Text>
+      <View style={styles.plantRow}>
+        <View style={styles.plantImageWrapper}>
+            <Image source={plantImage} style={styles.plantImage} resizeMode="contain" />
+        </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.plantLabel}>Hey {userName}! 👋</Text>
           <Text style={styles.plantSubtext}>{healthMessage}</Text>
         </View>
-      </Pressable>
-
-      {showPicker && (
-        <View style={styles.pickerRow}>
-          {PLANT_TYPES.map((p) => (
-            <Pressable
-              key={p.value}
-              onPress={() => { onChangePlantType(p.value); setShowPicker(false); }}
-              style={[styles.pickerOption, plantType === p.value && styles.pickerOptionSelected]}
-            >
-              <Text style={{ fontSize: 22 }}>{p.emoji}</Text>
-              <Text style={styles.pickerLabel}>{p.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-      )}
+      </View>
 
       <View style={styles.divider} />
 
@@ -82,7 +65,7 @@ export function PlantHealthCard({ userName, plantHealth, plantType, memberBreakd
             <Text style={styles.memberEmoji}>{m.avatarEmoji}</Text>
             <Text style={styles.memberNameLabel} numberOfLines={1}>{m.name}</Text>
             <View style={styles.barTrack}>
-                <View style={[styles.barFill, { width: `${Math.min(ratio, 1) * 100}%` }]} />
+              <View style={[styles.barFill, { width: `${Math.min(ratio, 1) * 100}%` }]} />
             </View>
             <Text style={styles.memberFraction}>{m.completedThisMonth}/{m.dueThisMonth}</Text>
           </View>
@@ -95,13 +78,10 @@ export function PlantHealthCard({ userName, plantHealth, plantType, memberBreakd
 const styles = StyleSheet.create({
   card: { backgroundColor: colors.card, borderRadius: radius.lg, padding: 18, marginBottom: 20, borderWidth: 1, borderColor: colors.border, ...shadow },
   plantRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  plantEmoji: { fontSize: 44 },
+  plantImageWrapper: { width: 64, height: 64, overflow: 'hidden', borderRadius: 8 },
+  plantImage: { width: 64, height: 64, transform: [{ scale: 1.2 }] },
   plantLabel: { fontSize: 17, fontWeight: '700', color: colors.text },
   plantSubtext: { fontSize: 12, color: colors.text, opacity: 0.5, marginTop: 2 },
-  pickerRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
-  pickerOption: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: radius.md, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border },
-  pickerOptionSelected: { borderColor: colors.sage, backgroundColor: colors.sageTint },
-  pickerLabel: { fontSize: 10, color: colors.text, opacity: 0.7, marginTop: 4, fontWeight: '600' },
   divider: { height: 1, backgroundColor: colors.border, marginVertical: 14 },
   breakdownTitle: { fontSize: 11, fontWeight: '700', color: colors.text, opacity: 0.5, letterSpacing: 0.5, marginBottom: 10 },
   memberRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },

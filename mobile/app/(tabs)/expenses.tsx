@@ -165,7 +165,7 @@ export default function ExpensesScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <ScreenHeader eyebrow="MONEY" title="Expenses" emoji="💸" rightAction={{ label: 'Log expense', onPress: () => setShowAddForm(true) }} />
+      <ScreenHeader eyebrow="MONEY" title="Expenses" icon="cash-outline" rightAction={{ label: 'Log expense', onPress: () => setShowAddForm(true) }} />
 
       {showAddForm && (
         <View style={styles.card}>

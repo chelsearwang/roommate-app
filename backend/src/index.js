@@ -381,17 +381,20 @@ app.get('/households/stats', requireAuth, async (req, res) => {
     where: { status: 'overdue', chore: { householdId } },
   });
 
-  // const totalActiveChores = await prisma.chore.count({ where: { householdId } });
-
-  const household = await prisma.household.findUnique({ where: { id: householdId } });
-  const plantHealth = calculatePlantHealth(completedThisWeek, householdOverdueCount);
-
-  const members = await prisma.user.findMany({ where: { householdId }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
-  
   const monthStart = getStartOfMonth(new Date());
   const monthEnd = getEndOfMonth(new Date());
 
-    const memberBreakdown = await Promise.all(members.map(async (member) => {
+  const monthlyAssignments = await prisma.assignment.findMany({
+    where: { chore: { householdId }, dueDate: { gte: monthStart, lte: monthEnd } },
+    select: { status: true },
+  });
+  const totalCompletedThisMonth = monthlyAssignments.filter((a) => a.status === 'done').length;
+  const totalOverdueThisMonth = monthlyAssignments.filter((a) => a.status === 'overdue').length;
+  const plantHealth = calculatePlantHealth(totalCompletedThisMonth, totalOverdueThisMonth);
+
+  const members = await prisma.user.findMany({ where: { householdId }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
+
+  const memberBreakdown = await Promise.all(members.map(async (member) => {
     const assignmentsThisMonth = await prisma.assignment.findMany({
       where: { userId: member.id, dueDate: { gte: monthStart, lte: monthEnd } },
       select: { status: true },
@@ -401,7 +404,7 @@ app.get('/households/stats', requireAuth, async (req, res) => {
     return { userId: member.id, name: member.name, avatarEmoji: member.avatarEmoji, dueThisMonth, completedThisMonth };
   }));
 
-  res.json({ completedThisWeek, householdOverdueCount, plantHealth, plantType: household.plantType, memberBreakdown, monthStart, monthEnd });
+  res.json({ completedThisWeek, householdOverdueCount, plantHealth, memberBreakdown, monthStart, monthEnd });
 });
 
 app.get('/households/members', requireAuth, async (req, res) => {
@@ -528,21 +531,6 @@ app.delete('/households', requireAuth, async (req, res) => {
   res.json({ deleted: true });
 });
 
-app.patch('/households/plant-type', requireAuth, async (req, res) => {
-  const { plantType } = req.body;
-  if (!plantType) {
-    return res.status(400).json({ error: 'plantType is required' });
-  }
-  const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
-  if (!currentUser.householdId) {
-    return res.status(400).json({ error: 'You must join a household first' });
-  }
-  const household = await prisma.household.update({
-    where: { id: currentUser.householdId },
-    data: { plantType },
-  });
-  res.json({ household });
-});
 
 // ============================================================
 // ROUTES — announcements (create, list, resolve)

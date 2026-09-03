@@ -162,11 +162,9 @@ export default function DashboardScreen() {
         <PlantHealthCard
           userName={meData.name}
           plantHealth={stats.plantHealth}
-          plantType={stats.plantType}
           memberBreakdown={stats.memberBreakdown}
           monthStart={stats.monthStart}
           monthEnd={stats.monthEnd}
-          onChangePlantType={handleChangePlantType}
         />
       )}
 

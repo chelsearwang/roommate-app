@@ -202,7 +202,7 @@ export default function AnnouncementsScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <ScreenHeader eyebrow="THE BOARD" title="Announcements" emoji="📣" rightAction={{ label: 'Post', onPress: () => setShowAddForm(true) }} />
+      <ScreenHeader eyebrow="THE BOARD" title="Announcements" icon="megaphone-outline" rightAction={{ label: 'Post', onPress: () => setShowAddForm(true) }} />
 
       {showAddForm && (
         <View style={styles.card}>
@@ -220,8 +220,9 @@ export default function AnnouncementsScreen() {
             onChangeText={setContent}
             multiline
           />
-          <Pressable onPress={() => setPinned(!pinned)} style={[styles.chip, pinned && styles.chipSelected]}>
-            <Text style={[styles.chipText, pinned && styles.chipTextSelected]}>📌 Pin this</Text>
+          <Pressable onPress={() => setPinned(!pinned)} style={[styles.chip, pinned && styles.chipSelected, { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }]}>
+            <Ionicons name="pin" size={14} color={pinned ? '#fff' : colors.text} />
+            <Text style={[styles.chipText, pinned && styles.chipTextSelected]}>Pin this</Text>
           </Pressable>
           <Pressable onPress={handleCreate} disabled={isPosting} style={[styles.saveButton, isPosting && { opacity: 0.6 }]}>
             <Text style={styles.saveButtonText}>{isPosting ? 'Posting...' : 'Post'}</Text>

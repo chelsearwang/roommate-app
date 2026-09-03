@@ -20,10 +20,6 @@ const WEEKDAYS = [
   { label: 'Sun', value: 0 }, { label: 'Mon', value: 1 }, { label: 'Tue', value: 2 },
   { label: 'Wed', value: 3 }, { label: 'Thu', value: 4 }, { label: 'Fri', value: 5 }, { label: 'Sat', value: 6 },
 ];
-const OCCURRENCES = [
-  { label: '1st', value: 'first' }, { label: '2nd', value: 'second' }, { label: '3rd', value: 'third' },
-  { label: '4th', value: 'fourth' }, { label: 'Last', value: 'last' },
-];
 
 const OCCURRENCE_INDEX: Record<string, number> = { first: 0, second: 1, third: 2, fourth: 3 };
 
@@ -85,9 +81,9 @@ function groupByPerson(chores: Chore[], members: Member[]): PersonRow[] {
 }
 
 function weightMeta(weight: number) {
-  if (weight === 1) return { label: 'light', bg: colors.sageTint, color: colors.sage, icon: '🌿' };
-  if (weight === 2) return { label: 'medium', bg: colors.neutral, color: colors.text, icon: '⚡' };
-  return { label: 'heavy', bg: colors.coralTint, color: colors.coral, icon: '🔥' };
+  if (weight === 1) return { label: 'light', bg: colors.sageTint, color: colors.sage, icon: 'leaf-outline' as const };
+  if (weight === 2) return { label: 'medium', bg: colors.neutral, color: colors.text, icon: 'flash-outline' as const };
+  return { label: 'heavy', bg: colors.coralTint, color: colors.coral, icon: 'flame-outline' as const };
 }
 
 export default function ChoresScreen() {
@@ -101,6 +97,7 @@ export default function ChoresScreen() {
   const [isCreating, setIsCreating] = useState(false);
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [deleteChoiceFor, setDeleteChoiceFor] = useState<{ assignmentId: string; choreId: string; choreName: string } | null>(null);
 
   const [choreType, setChoreType] = useState<'recurring' | 'one_time'>('recurring');
   const [name, setName] = useState('');
@@ -122,7 +119,6 @@ export default function ChoresScreen() {
   const [editDueDate, setEditDueDate] = useState('');
   const [editAssigneeId, setEditAssigneeId] = useState<string | null>(null);
   const [editAssignmentMode, setEditAssignmentMode] = useState<'rotating' | 'fixed'>('rotating');
-  const [deleteChoiceFor, setDeleteChoiceFor] = useState<{ assignmentId: string; choreId: string; choreName: string } | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -195,22 +191,12 @@ export default function ChoresScreen() {
       }
       await loadData();
       resetAddForm();
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setIsCreating(false);
-      }
-  }
-
-  /*
-  async function handleComplete(assignmentId: string) {
-    try {
-      await apiRequest(`/assignments/${assignmentId}/complete`, { method: 'PATCH' }, token!);
-      loadData();
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setIsCreating(false);
     }
-  } */
+  }
 
   async function handleComplete(assignmentId: string) {
     setCompletingIds((prev) => new Set(prev).add(assignmentId));
@@ -299,26 +285,6 @@ export default function ChoresScreen() {
     }
   }
 
-  /*
-  function handleDelete(choreId: string, choreName: string) {
-    const performDelete = async () => {
-      try {
-        await apiRequest(`/chores/${choreId}`, { method: 'DELETE' }, token!);
-        loadData();
-      } catch (err: any) {
-        setError(err.message);
-      }
-    };
-    if (Platform.OS === 'web') {
-      if (window.confirm(`Delete "${choreName}"? This removes it and its history for everyone. This can't be undone.`)) performDelete();
-    } else {
-      Alert.alert('Delete chore?', `This removes "${choreName}" and its history for everyone. This can't be undone.`, [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: performDelete },
-      ]);
-    }
-  } */
-
   function handleDeleteAssignment(assignmentId: string) {
     setDeleteChoiceFor(null);
     setChores((prev) => prev.map((c) => ({
@@ -360,12 +326,12 @@ export default function ChoresScreen() {
       {feedback ? <Toast message={feedback} type="success" onDismiss={() => setFeedback('')} /> : null}
 
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <ScreenHeader eyebrow="MANAGE" title="Chores" emoji="🧹" rightAction={{ label: 'Add chore', onPress: () => setShowAddForm(true) }} />
+        <ScreenHeader eyebrow="MANAGE" title="Chores" icon="list-outline" rightAction={{ label: 'Add chore', onPress: () => setShowAddForm(true) }} />
 
         {showAddForm && (
           <View style={styles.card}>
             <View style={styles.addFormHeader}>
-              <Text style={styles.cardTitle}>New chore ✨</Text>
+              <Text style={styles.cardTitle}>New chore</Text>
               <Pressable onPress={resetAddForm}>
                 <Ionicons name="close" size={20} color={colors.text} style={{ opacity: 0.5 }} />
               </Pressable>
@@ -373,10 +339,12 @@ export default function ChoresScreen() {
 
             <View style={styles.chipRow}>
               <Pressable onPress={() => setChoreType('recurring')} style={[styles.typeChip, choreType === 'recurring' && styles.chipSelected]}>
-                <Text style={[styles.chipText, choreType === 'recurring' && styles.chipTextSelected]}>🔁 Recurring</Text>
+                <Ionicons name="repeat-outline" size={14} color={choreType === 'recurring' ? '#fff' : colors.text} />
+                <Text style={[styles.chipText, choreType === 'recurring' && styles.chipTextSelected]}>Recurring</Text>
               </Pressable>
               <Pressable onPress={() => setChoreType('one_time')} style={[styles.typeChip, choreType === 'one_time' && styles.chipSelected]}>
-                <Text style={[styles.chipText, choreType === 'one_time' && styles.chipTextSelected]}>📌 One-time</Text>
+                <Ionicons name="flag-outline" size={14} color={choreType === 'one_time' ? '#fff' : colors.text} />
+                <Text style={[styles.chipText, choreType === 'one_time' && styles.chipTextSelected]}>One-time</Text>
               </Pressable>
             </View>
 
@@ -397,10 +365,12 @@ export default function ChoresScreen() {
                 <Text style={styles.label}>ASSIGNMENT</Text>
                 <View style={styles.chipRow}>
                   <Pressable onPress={() => setAssignmentMode('rotating')} style={[styles.chip, assignmentMode === 'rotating' && styles.chipSelected]}>
-                    <Text style={[styles.chipText, assignmentMode === 'rotating' && styles.chipTextSelected]}>🔁 Rotates between roommates</Text>
+                    <Ionicons name="shuffle-outline" size={14} color={assignmentMode === 'rotating' ? '#fff' : colors.text} />
+                    <Text style={[styles.chipText, assignmentMode === 'rotating' && styles.chipTextSelected]}>Rotates between roommates</Text>
                   </Pressable>
                   <Pressable onPress={() => setAssignmentMode('fixed')} style={[styles.chip, assignmentMode === 'fixed' && styles.chipSelected]}>
-                    <Text style={[styles.chipText, assignmentMode === 'fixed' && styles.chipTextSelected]}>📌 Fixed to one person</Text>
+                    <Ionicons name="lock-closed-outline" size={14} color={assignmentMode === 'fixed' ? '#fff' : colors.text} />
+                    <Text style={[styles.chipText, assignmentMode === 'fixed' && styles.chipTextSelected]}>Fixed to one person</Text>
                   </Pressable>
                 </View>
                 {assignmentMode === 'fixed' && (
@@ -517,10 +487,12 @@ export default function ChoresScreen() {
                             <Text style={styles.label}>ASSIGNMENT</Text>
                             <View style={styles.chipRow}>
                               <Pressable onPress={() => setEditAssignmentMode('rotating')} style={[styles.chip, editAssignmentMode === 'rotating' && styles.chipSelected]}>
-                                <Text style={[styles.chipText, editAssignmentMode === 'rotating' && styles.chipTextSelected]}>🔁 Rotating</Text>
+                                <Ionicons name="shuffle-outline" size={14} color={editAssignmentMode === 'rotating' ? '#fff' : colors.text} />
+                                <Text style={[styles.chipText, editAssignmentMode === 'rotating' && styles.chipTextSelected]}>Rotating</Text>
                               </Pressable>
                               <Pressable onPress={() => setEditAssignmentMode('fixed')} style={[styles.chip, editAssignmentMode === 'fixed' && styles.chipSelected]}>
-                                <Text style={[styles.chipText, editAssignmentMode === 'fixed' && styles.chipTextSelected]}>📌 Fixed</Text>
+                                <Ionicons name="lock-closed-outline" size={14} color={editAssignmentMode === 'fixed' ? '#fff' : colors.text} />
+                                <Text style={[styles.chipText, editAssignmentMode === 'fixed' && styles.chipTextSelected]}>Fixed</Text>
                               </Pressable>
                             </View>
                             {editAssignmentMode === 'fixed' && (
@@ -538,7 +510,7 @@ export default function ChoresScreen() {
 
                             {editFrequency === 'monthly' && (
                               <>
-                                <Text style={styles.label}>NEW EXAMPLE DATE (LEAVE BLANK TO KEEP CURRENT PATTERN)</Text>
+                                <Text style={styles.label}>PICK A CALENDAR DATE</Text>
                                 <CalendarPicker value={editMonthlyScheduleDate} onSelect={setEditMonthlyScheduleDate} />
                                 {editMonthlyScheduleDate && (
                                   <Text style={styles.patternPreview}>{describeMonthlyPattern(editMonthlyScheduleDate)}</Text>
@@ -587,14 +559,23 @@ export default function ChoresScreen() {
                         <Text style={[styles.choreName, isDone && styles.doneText]}>{chore.name}</Text>
                         <View style={styles.tagRow}>
                           {isOneTime ? (
-                            <View style={[styles.tag, { backgroundColor: colors.neutral }]}><Text style={styles.tagText}>📌 one-time</Text></View>
+                            <View style={[styles.tag, { backgroundColor: colors.neutral }]}>
+                              <Ionicons name="flag-outline" size={11} color={colors.text} />
+                              <Text style={styles.tagText}>one-time</Text>
+                            </View>
                           ) : (
                             <View style={styles.tag}><Text style={styles.tagText}>{chore.frequency}</Text></View>
                           )}
                           {isFixed && (
-                            <View style={[styles.tag, { backgroundColor: colors.neutral }]}><Text style={styles.tagText}>📌 fixed</Text></View>
+                            <View style={[styles.tag, { backgroundColor: colors.neutral }]}>
+                              <Ionicons name="lock-closed-outline" size={11} color={colors.text} />
+                              <Text style={styles.tagText}>fixed</Text>
+                            </View>
                           )}
-                          <View style={[styles.tag, { backgroundColor: wMeta.bg }]}><Text style={[styles.tagText, { color: wMeta.color }]}>{wMeta.icon} {wMeta.label}</Text></View>
+                          <View style={[styles.tag, { backgroundColor: wMeta.bg }]}>
+                            <Ionicons name={wMeta.icon} size={11} color={wMeta.color} />
+                            <Text style={[styles.tagText, { color: wMeta.color }]}>{wMeta.label}</Text>
+                          </View>
                           {isOverdue && <View style={[styles.tag, { backgroundColor: colors.coralTint }]}><Text style={[styles.tagText, { color: colors.coral }]}>overdue</Text></View>}
                         </View>
                       </View>
@@ -664,6 +645,7 @@ export default function ChoresScreen() {
           </View>
         ))}
       </ScrollView>
+
       <Modal
         visible={!!deleteChoiceFor}
         transparent
@@ -711,8 +693,8 @@ const styles = StyleSheet.create({
   label: { fontSize: 11, fontWeight: '700', color: colors.text, opacity: 0.5, letterSpacing: 0.5, marginBottom: 8, marginTop: 12 },
   input: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: 12, color: colors.text, backgroundColor: colors.background, marginBottom: 8 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: radius.md, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border },
-  typeChip: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: radius.md, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 14, borderRadius: radius.md, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border },
+  typeChip: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: radius.md, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border },
   chipSelected: { backgroundColor: colors.blue, borderColor: colors.blue },
   chipText: { color: colors.text, fontSize: 13 },
   chipTextSelected: { color: '#fff', fontWeight: '600' },
@@ -733,7 +715,7 @@ const styles = StyleSheet.create({
   choreName: { fontSize: 15, fontWeight: '600', color: colors.text, marginBottom: 6 },
   doneText: { textDecorationLine: 'line-through' },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  tag: { backgroundColor: colors.neutral, borderRadius: radius.sm, paddingVertical: 4, paddingHorizontal: 10 },
+  tag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.neutral, borderRadius: radius.sm, paddingVertical: 4, paddingHorizontal: 10 },
   tagText: { fontSize: 11, color: colors.text, fontWeight: '600' },
   dueDateText: { fontSize: 12, color: colors.text, opacity: 0.6, fontWeight: '600' },
   dueDateOverdue: { color: colors.coral, opacity: 1 },

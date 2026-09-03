@@ -178,7 +178,7 @@ export default function SettingsScreen() {
   return (
     <>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <ScreenHeader eyebrow="ACCOUNT" title="Settings" emoji="⚙️" />
+      <ScreenHeader eyebrow="ACCOUNT" title="Settings" icon="settings-outline" />
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Your avatar</Text>

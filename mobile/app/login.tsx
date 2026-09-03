@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, TextInput, Text, StyleSheet } from 'react-native';
+import { View, TextInput, Text, StyleSheet, Image } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { CozyButton } from '../components/CozyButton';
 import { colors, radius } from '../constants/colors';
@@ -31,6 +31,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
+      <Image source={require('../assets/images/plant-thriving.png')} style={styles.brandPlant} resizeMode="contain" />
       <Text style={styles.title}>Household Platform</Text>
       <TextInput
         style={styles.input}
@@ -71,4 +72,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
   },
   error: { color: '#B5544A', marginTop: 12, textAlign: 'center' },
+  brandPlant: { width: 200, height: 200, alignSelf: 'center', marginBottom: 12 },
 });
