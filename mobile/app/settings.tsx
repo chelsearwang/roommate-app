@@ -296,49 +296,7 @@ export default function SettingsScreen() {
           </View>
         </View>
         </Modal>
-        
-        {/*
-        <Modal
-          visible={showDeleteAccountConfirm}
-          transparent
-          animationType="fade"
-          onRequestClose={() => { setShowDeleteAccountConfirm(false); setDeleteAccountText(''); }}
-        >
-          <View style={styles.modalOverlay}>
-            <Pressable
-              style={StyleSheet.absoluteFill}
-              onPress={() => { setShowDeleteAccountConfirm(false); setDeleteAccountText(''); }}
-            />
-            <View style={styles.modalCard}>
-              <Text style={styles.dangerTitle}>⚠️ Delete your account</Text>
-              <Text style={styles.dangerText}>
-                This permanently deletes your account and everything tied to it. This can't be undone.
-              </Text>
-              <Text style={styles.dangerLabel}>Type DELETE to confirm</Text>
-              <TextInput
-                style={styles.input}
-                value={deleteAccountText}
-                onChangeText={setDeleteAccountText}
-                placeholder="DELETE"
-                placeholderTextColor="#999"
-                autoCapitalize="characters"
-              />
-              <View style={styles.editRow}>
-                <Pressable
-                  onPress={handleDeleteAccount}
-                  disabled={deleteAccountText !== 'DELETE'}
-                  style={[styles.deleteConfirmButton, deleteAccountText !== 'DELETE' && styles.deleteConfirmButtonDisabled]}
-                >
-                  <Text style={styles.deleteConfirmButtonText}>Permanently delete</Text>
-                </Pressable>
-                <Pressable onPress={() => { setShowDeleteAccountConfirm(false); setDeleteAccountText(''); }} style={styles.iconButton}>
-                  <Ionicons name="close" size={15} color={colors.text} />
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        </Modal>
-        */}
+    
         </>
       );
 }

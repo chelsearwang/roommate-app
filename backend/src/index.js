@@ -93,6 +93,38 @@ app.post('/auth/google/mobile', async (req, res) => {
   }
 });
 
+const { verifyAppleToken } = require('./lib/appleAuth');
+
+app.post('/auth/apple/mobile', async (req, res) => {
+  const { identityToken, fullName } = req.body;
+  if (!identityToken) {
+    return res.status(400).json({ error: 'identityToken is required' });
+  }
+
+  try {
+    const decoded = await verifyAppleToken(identityToken);
+
+    let user = await prisma.user.findFirst({ where: { appleId: decoded.sub } });
+    if (!user) {
+      const displayName = fullName?.givenName
+        ? `${fullName.givenName} ${fullName.familyName || ''}`.trim()
+        : 'Apple User';
+      user = await prisma.user.create({
+        data: {
+          appleId: decoded.sub,
+          email: decoded.email || `${decoded.sub}@privaterelay.appleid.com`,
+          name: displayName,
+        },
+      });
+    }
+
+    const token = jwt.sign({ userId: user.id, householdId: user.householdId }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, user });
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid Apple ID token' });
+  }
+});
+
 // ============================================================
 // AUTH — verifies the JWT
 // ============================================================

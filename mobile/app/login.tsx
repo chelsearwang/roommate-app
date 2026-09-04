@@ -5,11 +5,12 @@ import { CozyButton } from '../components/CozyButton';
 import { colors, radius } from '../constants/colors';
 import { Platform } from 'react-native';
 import { GoogleWebSignInButton } from '@/components/GoogleWebSignInButton';
+import { AppleSignInButton } from '@/components/AppleSignInButton';
 
 export default function LoginScreen() {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
-  const { login, loginWithGoogle, loginWithGoogleIdToken } = useAuth();
+  const { login, loginWithGoogle, loginWithGoogleIdToken, loginWithApple } = useAuth();
 
   async function handleLogin() {
     setError('');
@@ -41,6 +42,14 @@ export default function LoginScreen() {
         onChangeText={setName}
       />
       <CozyButton title="Log in" onPress={handleLogin} />
+      {Platform.OS === 'ios' && (
+        <AppleSignInButton
+          onIdentityToken={async (identityToken, fullName) => {
+            try { await loginWithApple(identityToken, fullName); } catch (err: any) { setError(err.message); }
+          }}
+          onError={setError}
+        />
+      )}
       {Platform.OS === 'web' ? (
         /*
         <GoogleWebSignInButton

@@ -29,6 +29,7 @@ type AuthContextType = {
   refreshUser: () => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   loginWithGoogleIdToken: (idToken: string) => Promise<void>;
+  loginWithApple: (identityToken: string, fullName: { givenName?: string | null; familyName?: string | null } | null) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -102,6 +103,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await loginWithGoogleIdToken(idToken);
   }
 
+  async function loginWithApple(identityToken: string, fullName: { givenName?: string | null; familyName?: string | null } | null) {
+    const data = await apiRequest('/auth/apple/mobile', {
+      method: 'POST',
+      body: JSON.stringify({ identityToken, fullName }),
+    });
+    await AsyncStorage.setItem('token', data.token);
+    await AsyncStorage.setItem('user', JSON.stringify(data.user));
+    setToken(data.token);
+    setUser(data.user);
+  }
+
   async function logout() {
     await AsyncStorage.removeItem('token');
     await AsyncStorage.removeItem('user');
@@ -114,10 +126,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await apiRequest('/me', {}, token);
     setUser(data.user);
     await AsyncStorage.setItem('user', JSON.stringify(data.user));
-    }
+  }
 
   return (
-    <AuthContext.Provider value={{ token, user, isLoading, login, logout, refreshUser, loginWithGoogle, loginWithGoogleIdToken }}>
+    <AuthContext.Provider value={{ token, user, isLoading, login, logout, refreshUser, loginWithGoogle, loginWithGoogleIdToken, loginWithApple }}>
       {children}
     </AuthContext.Provider>
   );
