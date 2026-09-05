@@ -15,12 +15,16 @@ import { LoadingScreen } from '@/components/LoadingScreen';
 
 type Member = { id: string; name: string; avatarEmoji: string };
 
+const APP_VERSION = '1.0.0';
+
 export default function SettingsScreen() {
   const { token, user, refreshUser, logout } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [householdName, setHouseholdName] = useState('');
   const [avatarEmoji, setAvatarEmoji] = useState('🐰');
+  const [email, setEmail] = useState('');
   const [editingName, setEditingName] = useState(false);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [error, setError] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [copied, setCopied] = useState(false);
@@ -30,8 +34,6 @@ export default function SettingsScreen() {
   const [isSavingName, setIsSavingName] = useState(false);
   const [isDeletingHousehold, setIsDeletingHousehold] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  // const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
-  // const [deleteAccountText, setDeleteAccountText] = useState('');
 
   const loadData = useCallback(async () => {
     try {
@@ -43,6 +45,7 @@ export default function SettingsScreen() {
       setHouseholdName(meData.user.household?.name ?? '');
       setInviteCode(meData.user.household?.inviteCode ?? '');
       setAvatarEmoji(meData.user.avatarEmoji);
+      setEmail(meData.user.email ?? '');
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -64,15 +67,7 @@ export default function SettingsScreen() {
       setIsSavingName(false);
     }
   }
-  
-  /*
-  async function copyInviteCode() {
-    await Clipboard.setStringAsync(inviteCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-    */
-  
+
   async function copyInviteCode() {
     await Clipboard.setStringAsync(inviteCode);
     setCopied(true);
@@ -166,94 +161,118 @@ export default function SettingsScreen() {
     }
   }
 
-  if (isLoading) {
-    return <LoadingScreen message="Loading settings..." />;
-  }
-
   function handleLogout() {
     setIsLoggingOut(true);
     logout();
   }
 
+  if (isLoading) {
+    return <LoadingScreen message="Loading settings..." />;
+  }
+
   return (
     <>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <ScreenHeader eyebrow="ACCOUNT" title="Settings" icon="settings-outline" />
+        <ScreenHeader eyebrow="ACCOUNT" title="Settings" icon="settings-outline" />
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Your avatar</Text>
-        <View style={styles.avatarGrid}>
-          {AVATAR_OPTIONS.map((emoji) => (
-            <Pressable key={emoji} onPress={() => selectAvatar(emoji)} style={[styles.avatarOption, avatarEmoji === emoji && styles.avatarOptionSelected]}>
-              <Text style={styles.avatarOptionEmoji}>{emoji}</Text>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        {/* PROFILE */}
+        <Text style={styles.sectionLabel}>PROFILE</Text>
+        <View style={styles.card}>
+          <View style={styles.profileRow}>
+            <View style={styles.profileAvatarCircle}>
+              <Text style={styles.profileAvatarEmoji}>{avatarEmoji}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.profileName}>{user?.name}</Text>
+              {email ? <Text style={styles.profileEmail}>{email}</Text> : null}
+            </View>
+            <Pressable onPress={() => setShowAvatarPicker(!showAvatarPicker)} style={styles.editPill}>
+              <Text style={styles.editPillText}>Edit</Text>
             </Pressable>
-          ))}
+          </View>
+          {showAvatarPicker && (
+            <View style={styles.avatarGrid}>
+              {AVATAR_OPTIONS.map((emoji) => (
+                <Pressable key={emoji} onPress={() => selectAvatar(emoji)} style={[styles.avatarOption, avatarEmoji === emoji && styles.avatarOptionSelected]}>
+                  <Text style={styles.avatarOptionEmoji}>{emoji}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
         </View>
-      </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Household name</Text>
-        {editingName ? (
-          <>
-            <TextInput style={styles.input} value={householdName} onChangeText={setHouseholdName} />
-            <View style={styles.editRow}>
-              <Pressable onPress={saveName} disabled={isSavingName} style={[styles.saveEditButton, isSavingName && { opacity: 0.6 }]}>
-                <Text style={styles.saveEditText}>{isSavingName ? 'Saving...' : 'Save'}</Text>
-              </Pressable>
-              <Pressable onPress={() => setEditingName(false)} style={styles.iconButton}>
-                <Ionicons name="close" size={15} color={colors.text} />
+        {/* HOUSEHOLD */}
+        <Text style={styles.sectionLabel}>HOUSEHOLD</Text>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Household name</Text>
+          {editingName ? (
+            <>
+              <TextInput style={styles.input} value={householdName} onChangeText={setHouseholdName} />
+              <View style={styles.editRow}>
+                <Pressable onPress={saveName} disabled={isSavingName} style={[styles.saveEditButton, isSavingName && { opacity: 0.6 }]}>
+                  <Text style={styles.saveEditText}>{isSavingName ? 'Saving...' : 'Save'}</Text>
+                </Pressable>
+                <Pressable onPress={() => setEditingName(false)} style={styles.iconButton}>
+                  <Ionicons name="close" size={15} color={colors.text} />
+                </Pressable>
+              </View>
+            </>
+          ) : (
+            <View style={styles.nameRow}>
+              <Text style={styles.householdName}>{householdName}</Text>
+              <Pressable onPress={() => setEditingName(true)} style={styles.iconButton}>
+                <Ionicons name="create-outline" size={15} color={colors.blue} />
               </Pressable>
             </View>
-          </>
-        ) : (
-          <View style={styles.nameRow}>
-            <Text style={styles.householdName}>{householdName}</Text>
-            <Pressable onPress={() => setEditingName(true)} style={styles.iconButton}>
-              <Ionicons name="create-outline" size={15} color={colors.blue} />
+          )}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Invite code</Text>
+          <View style={styles.inviteRow}>
+            <Text style={styles.inviteCode} numberOfLines={1} adjustsFontSizeToFit>{inviteCode}</Text>
+            <Pressable onPress={copyInviteCode} style={styles.iconButton}>
+              <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={16} color={colors.blue} />
+            </Pressable>
+            <Pressable onPress={shareInviteCode} style={styles.iconButton}>
+              <Ionicons name="share-outline" size={16} color={colors.blue} />
             </Pressable>
           </View>
-        )}
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Invite code</Text>
-        <View style={styles.inviteRow}>
-          <Text style={styles.inviteCode} numberOfLines={1} adjustsFontSizeToFit>{inviteCode}</Text>
-          <Pressable onPress={copyInviteCode} style={styles.iconButton}>
-            <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={16} color={colors.blue} />
-          </Pressable>
-          <Pressable onPress={shareInviteCode} style={styles.iconButton}>
-            <Ionicons name="share-outline" size={16} color={colors.blue} />
-          </Pressable>
+          {copied ? <Text style={styles.copiedText}>Copied!</Text> : null}
         </View>
-        {copied ? <Text style={styles.copiedText}>Copied!</Text> : null}
-      </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Members</Text>
-        {sortedMembers.map((m) => (
-          <View key={m.id} style={styles.memberRow}>
-            <Text style={styles.memberAvatar}>{m.avatarEmoji}</Text>
-            <Text style={styles.memberName}>{m.name}{m.id === user?.id ? ' (you)' : ''}</Text>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Members</Text>
+          {sortedMembers.map((m) => (
+            <View key={m.id} style={styles.memberRow}>
+              <Text style={styles.memberAvatar}>{m.avatarEmoji}</Text>
+              <Text style={styles.memberName}>{m.name}{m.id === user?.id ? ' (you)' : ''}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* APP */}
+        <Text style={styles.sectionLabel}>APP</Text>
+        <View style={styles.card}>
+          <Pressable onPress={() => router.push('/privacy')} style={styles.linkRow}>
+            <Text style={styles.linkRowText}>Privacy Policy</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.text} style={{ opacity: 0.4 }} />
+          </Pressable>
+          <View style={styles.linkDivider} />
+          <View style={styles.linkRow}>
+            <Text style={styles.linkRowText}>Version</Text>
+            <Text style={styles.versionText}>{APP_VERSION}</Text>
           </View>
-        ))}
-      </View>
+        </View>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-
-      <CozyButton title={isLoggingOut ? 'Logging out...' : 'Log out'} onPress={handleLogout} />
-      <CozyButton title="Leave household" variant="secondary" onPress={handleLeave} />
-
-      <CozyButton title="Delete household" variant="danger" onPress={() => setShowDeleteConfirm(true)} />
-      
-      {/*
-      <Pressable onPress={() => setShowDeleteAccountConfirm(true)} style={styles.deleteHouseholdTrigger}>
-        <Text style={styles.deleteHouseholdTriggerText}>Delete my account</Text>
-      </Pressable>
-      */}
-
-      {/* added this line below */}
-
-      <CozyButton title="Delete my account" variant="danger" onPress={handleDeleteAccountFromSettings} />
+        {/* ACCOUNT */}
+        <Text style={styles.sectionLabel}>ACCOUNT</Text>
+        <CozyButton title={isLoggingOut ? 'Logging out...' : 'Log out'} onPress={handleLogout} />
+        <CozyButton title="Leave household" variant="secondary" onPress={handleLeave} />
+        <CozyButton title="Delete household" variant="danger" onPress={() => setShowDeleteConfirm(true)} />
+        <CozyButton title="Delete my account" variant="danger" onPress={handleDeleteAccountFromSettings} />
       </ScrollView>
 
       <Modal
@@ -295,18 +314,25 @@ export default function SettingsScreen() {
             </View>
           </View>
         </View>
-        </Modal>
-    
-        </>
-      );
+      </Modal>
+    </>
+  );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { paddingHorizontal: 24, paddingBottom: 60 },
+  sectionLabel: { fontSize: 11, fontWeight: '700', color: colors.text, opacity: 0.5, letterSpacing: 0.5, marginTop: 20, marginBottom: 8 },
   card: { backgroundColor: colors.card, borderRadius: radius.lg, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.border, ...shadow },
   cardTitle: { fontSize: 14, color: colors.text, opacity: 0.7, marginBottom: 12 },
-  avatarGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  profileRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  profileAvatarCircle: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
+  profileAvatarEmoji: { fontSize: 28 },
+  profileName: { fontSize: 17, fontWeight: '700', color: colors.text },
+  profileEmail: { fontSize: 13, color: colors.text, opacity: 0.6, marginTop: 2 },
+  editPill: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, borderColor: colors.blue },
+  editPillText: { color: colors.blue, fontWeight: '700', fontSize: 13 },
+  avatarGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 16 },
   avatarOption: { width: 50, height: 50, borderRadius: 25, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
   avatarOptionSelected: { borderColor: colors.sage, backgroundColor: colors.sageTint },
   avatarOptionEmoji: { fontSize: 24 },
@@ -314,8 +340,6 @@ const styles = StyleSheet.create({
   householdName: { fontSize: 18, fontWeight: '700', color: colors.text },
   input: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 12, color: colors.text, backgroundColor: colors.background, marginBottom: 12 },
   editRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  cancelButton: { paddingVertical: 8 },
-  cancelText: { color: colors.text, opacity: 0.6 },
   iconButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   memberRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border },
   memberAvatar: { fontSize: 18 },
@@ -326,6 +350,10 @@ const styles = StyleSheet.create({
   inviteRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   inviteCode: { flex: 1, fontSize: 18, fontWeight: '700', color: colors.text, letterSpacing: 1 },
   copiedText: { fontSize: 12, color: colors.sage, marginTop: 8, fontWeight: '600' },
+  linkRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
+  linkRowText: { fontSize: 15, color: colors.text, fontWeight: '600' },
+  linkDivider: { height: 1, backgroundColor: colors.border, marginVertical: 8 },
+  versionText: { fontSize: 13, color: colors.text, opacity: 0.5 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalCard: { backgroundColor: colors.card, borderRadius: radius.lg, padding: 20, width: '100%', maxWidth: 400, borderWidth: 1.5, borderColor: colors.coral },
   dangerTitle: { fontSize: 15, fontWeight: '700', color: colors.coral, marginBottom: 8 },
@@ -334,6 +362,4 @@ const styles = StyleSheet.create({
   deleteConfirmButton: { flex: 1, backgroundColor: colors.coral, borderRadius: radius.md, paddingVertical: 12, alignItems: 'center' },
   deleteConfirmButtonDisabled: { opacity: 0.4 },
   deleteConfirmButtonText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  deleteHouseholdTrigger: { paddingVertical: 14, alignItems: 'center', marginTop: 8 },
-  deleteHouseholdTriggerText: { color: colors.coral, fontWeight: '600', fontSize: 14 },
 });

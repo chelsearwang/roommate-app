@@ -4,14 +4,15 @@ import { colors, radius, shadow } from '../constants/colors';
 type Props = {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary';
+  variant?: 'primary' | 'secondary' | 'danger';
+  small?: boolean;
 };
 
-export function CozyButton({ title, onPress, variant = 'primary' }: Props) {
+export function CozyButton({ title, onPress, variant = 'primary', small = false }: Props) {
   const bg = variant === 'primary' ? colors.blue : variant === 'danger' ? colors.coral : colors.sage;
   return (
-    <Pressable style={[styles.button, { backgroundColor: bg }]} onPress={onPress}>
-      <Text style={styles.text}>{title}</Text>
+    <Pressable style={[styles.button, { backgroundColor: bg }, small && styles.buttonSmall]} onPress={onPress}>
+      <Text style={[styles.text, small && styles.textSmall]}>{title}</Text>
     </Pressable>
   );
 }
@@ -25,5 +26,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     ...shadow,
   },
+  buttonSmall: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignSelf: 'center',
+  },
   text: { color: '#fff', fontWeight: '600', fontSize: 16 },
+  textSmall: { fontSize: 13 },
 });
